@@ -215,7 +215,7 @@ function getRatePerSqft(p) {
   return Math.round(price / area).toLocaleString();
 }
 
-function esc(s) { return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function esc(s) { return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
 function getFiltered() {
   return DATA.filter(p => {
@@ -347,6 +347,7 @@ function render() {
 
     // Expanded row
     if (isExp) {
+      try {
       h += '<tr class="expand-row"><td colspan="18"><div class="expand-content">';
       h += '<div class="detail-tags">';
       const rate = getRatePerSqft(p);
@@ -368,7 +369,7 @@ function render() {
       h += '</div>';
 
       if (p.documentsAvailable && p.documentsAvailable.length > 0) {
-        h += '<div style="font-size:11px;color:#6b7280;margin-bottom:12px">Docs: '+p.documentsAvailable.map(d=>esc(d)).join(' \u00B7 ')+'</div>';
+        h += '<div style="font-size:11px;color:#6b7280;margin-bottom:12px">Docs: '+p.documentsAvailable.map(function(d){return esc(d)}).join(' \u00B7 ')+'</div>';
       }
 
       if (p.balconyDetails && p.balconyDetails.length > 0) {
@@ -378,7 +379,7 @@ function render() {
           h += '<div style="min-width:100px;text-align:center"><img src="'+esc(p.exitCompassImage)+'" width="100" height="70" data-modal="'+esc(p.exitCompassImage)+'" onclick="event.stopPropagation();showModal(this.dataset.modal)"><div style="font-size:10px;color:#6b7280;margin-top:3px">Exit Compass</div></div>';
         }
         p.balconyDetails.forEach(function(b) {
-          if (!b || !b.view_image) return; // skip bad entries
+          if (!b || !b.view_image) return;
           h += '<div class="img-card"><div style="display:flex;gap:4px">';
           h += '<img src="'+esc(b.view_image)+'" width="80" height="70" data-modal="'+esc(b.view_image)+'" onclick="event.stopPropagation();showModal(this.dataset.modal)">';
           if (b.compass_image) h += '<img src="'+esc(b.compass_image)+'" width="50" height="70" data-modal="'+esc(b.compass_image)+'" onclick="event.stopPropagation();showModal(this.dataset.modal)">';
@@ -390,6 +391,10 @@ function render() {
       }
 
       h += '</div></td></tr>';
+      } catch(expandErr) {
+        h += '<tr class="expand-row"><td colspan="18" style="padding:12px 20px;color:#ef4444;font-size:12px">Error loading details: '+esc(expandErr.message)+'</td></tr>';
+        console.error("Expand error for "+p.uid+":", expandErr);
+      }
     }
   });
 
@@ -454,7 +459,10 @@ function render() {
 function toggleTab(s) { state.statusFilter = state.statusFilter === s ? "All" : s; render(); }
 function updateSearch(v) { state.search = v; render(); }
 function updateFilter(key, v) { state[key] = v; render(); }
-function toggleExpand(uid) { state.expandedId = state.expandedId === uid ? null : uid; render(); }
+function toggleExpand(uid) {
+  state.expandedId = state.expandedId === uid ? null : uid;
+  try { render(); } catch(e) { console.error("Render crash:", e); alert("Render error: " + e.message); }
+}
 function showModal(src) { state.modalImg = src; render(); }
 function closeModal() { state.modalImg = null; render(); }
 
