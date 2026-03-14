@@ -8,6 +8,7 @@
     "db:setup": "node scripts/setup-db.js"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.9.0"
+    "@neondatabase/serverless": "^0.9.0",
+    "jose": "^5.2.0"
   }
 }

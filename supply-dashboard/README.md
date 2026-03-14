@@ -1,55 +1,31 @@
 # Openhouse Supply Closure Tracker
 
-Live dashboard connected to your Neon PostgreSQL database. Deployed on Vercel.
+Live dashboard with Google login, admin panel, and Neon PostgreSQL backend. Deployed on Vercel.
 
----
+## How Login Works
 
-## Project Structure
+1. User opens dashboard → redirected to login page
+2. User clicks **Sign in with Google**
+3. Backend checks if their email is in `dashboard_users` table
+4. **If whitelisted** → session created → redirected to dashboard
+5. **If not whitelisted** → "Request Access" button appears
+6. Admin sees pending request badge → opens **Manage Users** panel → approves/rejects
 
-```
-supply-dashboard/
-├── api/
-│   ├── _db.js            # Shared Neon connection
-│   ├── properties.js     # GET /api/properties
-│   └── update.js         # PATCH /api/update
-├── public/
-│   └── index.html        # Dashboard frontend
-├── scripts/
-│   ├── migration.sql     # SQL to add new columns
-│   └── setup-db.js       # Run migration script
-├── package.json
-├── vercel.json
-├── .env.example
-└── README.md
-```
+## Setup
 
----
+### Step 1: Create Google OAuth Client ID
 
-## Setup Steps (15 minutes)
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a project (or use existing)
+3. Go to **APIs & Services → Credentials**
+4. Click **Create Credentials → OAuth 2.0 Client ID**
+5. Application type: **Web application**
+6. Add **Authorized JavaScript origins**: `https://your-app.vercel.app` and `http://localhost:3000`
+7. Copy the **Client ID**
 
-### Step 1: Get your Neon connection string
+### Step 2: Run database migrations in Neon SQL Editor
 
-1. Go to [Neon Console](https://console.neon.tech)
-2. Open your project → **Connection Details**
-3. Copy the connection string (looks like `postgresql://user:pass@ep-xxx.neon.tech/dbname?sslmode=require`)
-
-### Step 2: Add dashboard columns to your database
-
-Your `properties` table already exists. You just need to add 5 new columns for the dashboard features (status override + 4 comment fields).
-
-**Option A — Run from terminal:**
-```bash
-# Clone/download this project
-cd supply-dashboard
-npm install
-
-# Run the migration
-DATABASE_URL="your_connection_string_here" npm run db:setup
-```
-
-**Option B — Run SQL directly in Neon Console:**
-
-Go to Neon Console → SQL Editor, paste and run:
+Dashboard columns (if not already done):
 ```sql
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS status_override TEXT DEFAULT '';
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS closure_team_comments TEXT DEFAULT '';
@@ -58,87 +34,31 @@ ALTER TABLE properties ADD COLUMN IF NOT EXISTS prashant_comments TEXT DEFAULT '
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS demand_team_comments TEXT DEFAULT '';
 ```
 
-### Step 3: Install Vercel CLI
-
-```bash
-npm install -g vercel
+Auth tables:
+```sql
+CREATE TABLE IF NOT EXISTS dashboard_users (
+  id SERIAL PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT DEFAULT '',
+  role TEXT DEFAULT 'viewer', added_by TEXT DEFAULT '', created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS access_requests (
+  id SERIAL PRIMARY KEY, email TEXT NOT NULL, name TEXT DEFAULT '',
+  picture TEXT DEFAULT '', status TEXT DEFAULT 'pending', reviewed_by TEXT DEFAULT '',
+  created_at TIMESTAMP DEFAULT NOW(), reviewed_at TIMESTAMP
+);
+INSERT INTO dashboard_users (email, name, role) VALUES ('ashish@openhouse.in', 'Ashish', 'admin') ON CONFLICT (email) DO NOTHING;
 ```
 
-### Step 4: Deploy
-
+### Step 3: Push to GitHub
 ```bash
-cd supply-dashboard
-vercel
+git add . && git commit -m "Add auth" && git push
 ```
 
-During the first deploy, Vercel will ask:
-- **Set up and deploy?** → Yes
-- **Which scope?** → Select your account
-- **Link to existing project?** → No
-- **Project name?** → `openhouse-supply-dashboard` (or whatever you want)
-- **Directory?** → `./` (current directory)
+### Step 4: Add env variables in Vercel Dashboard → Settings → Environment Variables
 
-### Step 5: Add environment variable
+| Variable | Value |
+|----------|-------|
+| `DATABASE_URL` | Your Neon connection string |
+| `GOOGLE_CLIENT_ID` | From Step 1 |
+| `JWT_SECRET` | Any random string |
 
-```bash
-vercel env add DATABASE_URL
-```
-
-Paste your Neon connection string when prompted. Select all environments (Production, Preview, Development).
-
-### Step 6: Redeploy with the env variable
-
-```bash
-vercel --prod
-```
-
-**That's it.** Vercel will give you a URL like `https://openhouse-supply-dashboard.vercel.app`. Open it — your live dashboard is running.
-
----
-
-## How It Works
-
-| Action | What happens |
-|--------|-------------|
-| Page loads | Frontend calls `GET /api/properties` → fetches all rows from Neon |
-| Change status dropdown | Saves to `status_override` column via `PATCH /api/update` |
-| Type in comment field | Auto-saves after 800ms of no typing (debounced) |
-| Click a row | Expands to show visit details + balcony images |
-
-All changes persist in your Neon database. Multiple team members can use the dashboard simultaneously.
-
----
-
-## Local Development
-
-```bash
-# Create .env file
-cp .env.example .env
-# Edit .env and paste your DATABASE_URL
-
-# Run locally
-vercel dev
-```
-
-Opens at `http://localhost:3000`
-
----
-
-## Custom Domain (Optional)
-
-```bash
-vercel domains add supply.openhouse.in
-```
-
-Or add it via Vercel Dashboard → Project Settings → Domains.
-
----
-
-## Troubleshooting
-
-| Problem | Fix |
-|---------|-----|
-| "Failed to load data" | Check DATABASE_URL is set in Vercel env variables, then redeploy |
-| Columns not found | Run the migration SQL (Step 2) |
-| CORS errors | The API already includes CORS headers — shouldn't happen on Vercel |
-| Slow first load | Normal for serverless cold start (~1-2s). Subsequent loads are fast |
+### Step 5: Redeploy from Vercel dashboard or push a commit.
