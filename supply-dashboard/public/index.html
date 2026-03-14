@@ -106,6 +106,7 @@ let currentUser = null; // { email, name, role }
 let adminUsers = [];
 let adminRequests = [];
 let showAdminPanel = false;
+let lastRefreshed = "";
 let state = {
   search: "",
   cityFilter: "All",
@@ -124,6 +125,25 @@ async function fetchProperties() {
   const res = await fetch("/api/properties");
   if (!res.ok) throw new Error("Failed to fetch");
   DATA = await res.json();
+  DATA.forEach(p => {
+    p.balconyDetails = ensureArray(p.balconyDetails);
+    p.documentsAvailable = ensureArray(p.documentsAvailable);
+    p.furnishingDetails = ensureArray(p.furnishingDetails);
+  });
+  const now = new Date();
+  lastRefreshed = now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit" });
+}
+
+async function refreshData() {
+  const btn = document.querySelector('[onclick="refreshData()"]');
+  if (btn) { btn.textContent = "Refreshing..."; btn.disabled = true; }
+  try {
+    await fetchProperties();
+    render();
+  } catch (err) {
+    alert("Refresh failed: " + err.message);
+  }
+  if (btn) { btn.innerHTML = "&#x21bb; Refresh"; btn.disabled = false; }
 }
 
 async function saveField(uid, dbField, value) {
@@ -172,8 +192,19 @@ function getStatus(p) {
 }
 
 function getBalconyView(p) {
-  if (!p.balconyDetails || p.balconyDetails.length === 0) return "";
-  return [...new Set(p.balconyDetails.map(b => b.view))].join(", ");
+  const bd = ensureArray(p.balconyDetails);
+  if (bd.length === 0) return "";
+  return [...new Set(bd.map(b => b.view))].join(", ");
+}
+
+// Safety: parse JSON strings that should be arrays
+function ensureArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try { return JSON.parse(val); } catch { return []; }
+  }
+  return [];
 }
 
 function getRatePerSqft(p) {
@@ -235,6 +266,7 @@ function render() {
       h += '</button>';
     }
     h += '<button onclick="logout()">Logout</button>';
+    h += '<button id="refreshBtn" onclick="refreshData()" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid #d1d5db;background:#fff;color:#374151">&#8635; Refresh</button>';
     h += '</div>';
   }
   h += '</div></div>';
@@ -252,11 +284,13 @@ function render() {
   pocs.filter(p=>p!=="All").forEach(p => { h += '<option value="'+esc(p)+'"'+(state.pocFilter===p?' selected':'')+'>'+esc(p)+'</option>'; });
   h += '</select>';
   h += '<span style="font-size:11px;color:#6b7280;margin-left:auto">'+filtered.length+' results</span>';
+  h += '<span id="lastUpdated" style="font-size:10px;color:#9ca3af">'+(lastRefreshed ? 'Updated '+lastRefreshed : '')+'</span>';
+  h += '<button onclick="refreshData()" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid #d1d5db;background:#fff;color:#374151">&#x21bb; Refresh</button>';
   h += '</div>';
 
   // Table
   h += '<div style="overflow-x:auto"><table><thead><tr>';
-  ["Society","Location","Unit No.","Config","Ask (in Lakhs)","Area (in Sqft)","Floor","Source","Name","Status","Exit Facing","Balcony View","POC","Field Exec","Closure Team Comments","Rahool Comments","Prashant Comments","Demand Team Comments"].forEach((hdr,i) => {
+  ["Society","Location","Unit No.","Config","Ask (in Lakhs)","Area (in Sqft)","Floor","Source","Name","Status","Exit Facing","Balcony View","POC","Offer Price","Closure Team Comments","Rahool Comments","Prashant Comments","Demand Team Comments"].forEach((hdr,i) => {
     h += '<th'+(i>=14?' style="min-width:150px"':'')+'>'+hdr+'</th>';
   });
   h += '</tr></thead><tbody>';
@@ -288,7 +322,7 @@ function render() {
     h += '<td>'+(p.exitFacing||"\u2014")+'</td>';
     h += '<td class="balcony-cell">'+(getBalconyView(p)||"\u2014")+'</td>';
     h += '<td class="small-cell">'+esc(p.assignedBy||"\u2014")+'</td>';
-    h += '<td class="small-cell">'+esc(p.fieldExec||"\u2014")+'</td>';
+    h += '<td onclick="event.stopPropagation()"><input type="text" value="'+esc(p.offerPrice||'')+'" placeholder="\u2014" oninput="changeOffer(\''+p.uid+'\',this.value)" style="width:70px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;font-weight:600;color:#047857;outline:none;font-family:inherit;text-align:right"><span id="dot_'+p.uid+'_offer_price" class="save-dot '+(saveStatus[p.uid+'_offer_price']||'')+'"></span></td>';
 
     // Comment cells
     const commentFields = [
@@ -313,6 +347,7 @@ function render() {
       h += '<div class="detail-tags">';
       const rate = getRatePerSqft(p);
       if (rate) h += '<span>Rate/sqft: <b>\u20B9'+rate+'</b></span>';
+      if (p.fieldExec) h += '<span>Field Exec: <b>'+esc(p.fieldExec)+'</b></span>';
       h += '<span>Visit: <b style="color:'+(p.visitSubmittedAt?'#059669':'#9ca3af')+'">'+(p.visitSubmittedAt?'Yes':'No')+'</b></span>';
       if (p.balconyDetails && p.balconyDetails.length > 0) h += '<span>Photos: <b style="color:#2563eb">'+p.balconyDetails.length+'</b></span>';
       if (p.bathrooms) h += '<span>Toilets: <b>'+esc(p.bathrooms)+'</b></span>';
@@ -429,6 +464,21 @@ function changeComment(uid, dbField, jsField, value) {
   const prop = DATA.find(p => p.uid === uid);
   if (prop) prop[jsField] = value;
   debouncedSave(uid, dbField, value);
+}
+
+function changeOffer(uid, value) {
+  const prop = DATA.find(p => p.uid === uid);
+  if (prop) prop.offerPrice = value;
+  debouncedSave(uid, "offer_price", value);
+}
+
+async function refreshData() {
+  const btn = document.getElementById("refreshBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Refreshing..."; }
+  try {
+    await fetchProperties();
+    render();
+  } catch {}
 }
 
 // ── Auth ──

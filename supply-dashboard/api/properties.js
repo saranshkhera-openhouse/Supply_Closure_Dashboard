@@ -13,7 +13,8 @@ module.exports = async function handler(req, res) {
 
     const rows = await sql`
       SELECT 
-        uid, source, demand_price, owner_first_name, owner_last_name,
+        uid, source, demand_price,
+        owner_first_name, owner_last_name, first_name, last_name, owner_broker_name,
         contact_no, city, locality, society_name, unit_no, floor, tower_no,
         configuration, area_sqft, bathrooms, balconies, gas_pipeline,
         parking, furnishing, furnishing_details, exit_facing,
@@ -32,59 +33,76 @@ module.exports = async function handler(req, res) {
       ORDER BY created_at DESC
     `;
 
-    // Transform rows to match frontend format
-    const properties = rows.map(r => ({
-      uid: r.uid,
-      source: r.source || "",
-      demandPrice: r.demand_price || "",
-      ownerName: [r.owner_first_name, r.owner_last_name].filter(Boolean).join(" ") || "",
-      contactNo: r.contact_no || "",
-      city: r.city || "",
-      locality: r.locality || "",
-      society: r.society_name || "",
-      unitNo: r.unit_no || "",
-      floor: r.floor || "",
-      towerNo: r.tower_no || "",
-      configuration: r.configuration || "",
-      areaSqft: r.area_sqft || "",
-      bathrooms: r.bathrooms || "",
-      balconies: r.balconies || "",
-      gasPipeline: r.gas_pipeline || "",
-      parking: r.parking || "",
-      furnishing: r.furnishing || "",
-      furnishingDetails: r.furnishing_details || [],
-      exitFacing: r.exit_facing || "",
-      videoLink: r.video_link || "",
-      registryStatus: r.registry_status || "",
-      occupancyStatus: r.occupancy_status || "",
-      guaranteedSalePrice: r.guaranteed_sale_price || "",
-      performanceGuarantee: r.performance_guarantee || "",
-      initialPeriod: r.initial_period || "",
-      gracePeriod: r.grace_period || "",
-      outstandingLoan: r.outstanding_loan || "",
-      bankNameLoan: r.bank_name_loan || "",
-      fieldExec: r.field_exec || "",
-      assignedBy: r.assigned_by || "",
-      tokenRequestedBy: r.token_requested_by || "",
-      scheduleDate: r.schedule_date || "",
-      visitSubmittedAt: r.visit_submitted_at || "",
-      tokenSubmittedAt: r.token_submitted_at || "",
-      tokenDealSubmittedAt: r.token_deal_submitted_at || "",
-      finalSubmittedAt: r.final_submitted_at || "",
-      listingSubmittedAt: r.listing_submitted_at || "",
-      tokenAmountRequested: r.token_amount_requested || "",
-      dealTokenAmount: r.deal_token_amount || "",
-      remainingAmount: r.remaining_amount || "",
-      balconyDetails: r.balcony_details || [],
-      exitCompassImage: r.exit_compass_image || "",
-      documentsAvailable: r.documents_available || [],
-      // Editable fields
-      statusOverride: r.status_override || "",
-      closureTeamComments: r.closure_team_comments || "",
-      rahoolComments: r.rahool_comments || "",
-      prashantComments: r.prashant_comments || "",
-      demandTeamComments: r.demand_team_comments || "",
-    }));
+    // Safely parse a JSON field that might be a string, array, or null
+    function parseJson(val) {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      if (typeof val === "string") {
+        try { return JSON.parse(val); } catch { return []; }
+      }
+      return [];
+    }
+
+    const properties = rows.map(r => {
+      // Name fallback: first_name+last_name -> owner_broker_name -> owner_first+owner_last
+      const ownerName =
+        [r.first_name, r.last_name].filter(Boolean).join(" ") ||
+        r.owner_broker_name ||
+        [r.owner_first_name, r.owner_last_name].filter(Boolean).join(" ") ||
+        "";
+
+      return {
+        uid: r.uid,
+        source: r.source || "",
+        demandPrice: r.demand_price || "",
+        ownerName,
+        contactNo: r.contact_no || "",
+        city: r.city || "",
+        locality: r.locality || "",
+        society: r.society_name || "",
+        unitNo: r.unit_no || "",
+        floor: r.floor || "",
+        towerNo: r.tower_no || "",
+        configuration: r.configuration || "",
+        areaSqft: r.area_sqft || "",
+        bathrooms: r.bathrooms || "",
+        balconies: r.balconies || "",
+        gasPipeline: r.gas_pipeline || "",
+        parking: r.parking || "",
+        furnishing: r.furnishing || "",
+        furnishingDetails: parseJson(r.furnishing_details),
+        exitFacing: r.exit_facing || "",
+        videoLink: r.video_link || "",
+        registryStatus: r.registry_status || "",
+        occupancyStatus: r.occupancy_status || "",
+        guaranteedSalePrice: r.guaranteed_sale_price || "",
+        performanceGuarantee: r.performance_guarantee || "",
+        initialPeriod: r.initial_period || "",
+        gracePeriod: r.grace_period || "",
+        outstandingLoan: r.outstanding_loan || "",
+        bankNameLoan: r.bank_name_loan || "",
+        fieldExec: r.field_exec || "",
+        assignedBy: r.assigned_by || "",
+        tokenRequestedBy: r.token_requested_by || "",
+        scheduleDate: r.schedule_date || "",
+        visitSubmittedAt: r.visit_submitted_at || "",
+        tokenSubmittedAt: r.token_submitted_at || "",
+        tokenDealSubmittedAt: r.token_deal_submitted_at || "",
+        finalSubmittedAt: r.final_submitted_at || "",
+        listingSubmittedAt: r.listing_submitted_at || "",
+        tokenAmountRequested: r.token_amount_requested || "",
+        dealTokenAmount: r.deal_token_amount || "",
+        remainingAmount: r.remaining_amount || "",
+        balconyDetails: parseJson(r.balcony_details),
+        exitCompassImage: r.exit_compass_image || "",
+        documentsAvailable: parseJson(r.documents_available),
+        statusOverride: r.status_override || "",
+        closureTeamComments: r.closure_team_comments || "",
+        rahoolComments: r.rahool_comments || "",
+        prashantComments: r.prashant_comments || "",
+        demandTeamComments: r.demand_team_comments || "",
+      };
+    });
 
     return res.status(200).json(properties);
   } catch (err) {

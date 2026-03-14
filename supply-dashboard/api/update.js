@@ -3,6 +3,7 @@ const { requireAuth } = require("./_auth");
 
 const ALLOWED_FIELDS = [
   "status_override",
+  "offer_price",
   "closure_team_comments",
   "rahool_comments",
   "prashant_comments",
