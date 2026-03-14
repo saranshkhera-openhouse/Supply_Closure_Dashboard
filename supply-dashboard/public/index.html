@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supply Closure Tracker - Openhouse</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; background:#fff; color:#111827; }
+.loading { display:flex; align-items:center; justify-content:center; height:100vh; font-size:14px; color:#6b7280; }
+.header { background:#fff; border-bottom:2px solid #e5e7eb; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.logo { width:32px; height:32px; border-radius:6px; background:#111827; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff; flex-shrink:0; }
+.tabs { display:flex; gap:6px; flex-wrap:wrap; }
+.tab { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:500; cursor:pointer; background:#f3f4f6; color:#374151; border:1px solid #d1d5db; transition:all 0.15s; user-select:none; }
+.tab.active { background:#111827; color:#fff; border-color:#111827; }
+.filters { padding:10px 20px; display:flex; gap:10px; align-items:center; border-bottom:1px solid #e5e7eb; background:#f9fafb; flex-wrap:wrap; }
+.filters input, .filters select { background:#fff; border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; font-size:12px; outline:none; color:#111827; }
+.filters input { width:220px; }
+table { width:100%; border-collapse:collapse; min-width:1600px; }
+th { padding:8px 10px; text-align:left; font-size:12px; font-weight:600; color:#374151; border-bottom:2px solid #d1d5db; background:#f9fafb; position:sticky; top:0; z-index:2; white-space:nowrap; }
+td { padding:7px 10px; font-size:12px; color:#374151; border-bottom:1px solid #e5e7eb; vertical-align:top; }
+tr.datarow { cursor:pointer; background:#fff; }
+tr.datarow:hover { background:#fafafa; }
+tr.datarow.expanded { background:#f8fafc; }
+.status-select { padding:3px 6px; border-radius:4px; font-size:11px; font-weight:600; border:none; outline:none; cursor:pointer; max-width:150px; }
+.comment-input { width:100%; min-width:120px; background:transparent; border:1px solid #e5e7eb; border-radius:4px; padding:4px 6px; font-size:11px; color:#374151; outline:none; resize:vertical; min-height:28px; max-height:60px; font-family:inherit; }
+.expand-row td { padding:0; background:#f8fafc; border-bottom:2px solid #d1d5db; }
+.expand-content { padding:16px 20px; }
+.detail-tags { display:flex; gap:20px; margin-bottom:16px; font-size:12px; color:#374151; flex-wrap:wrap; }
+.img-strip { display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; }
+.img-card { min-width:130px; text-align:center; }
+.img-card img { object-fit:cover; border-radius:4px; border:1px solid #d1d5db; cursor:zoom-in; }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; display:flex; align-items:center; justify-content:center; cursor:zoom-out; }
+.modal-overlay img { max-width:90vw; max-height:90vh; border-radius:6px; }
+.society-cell { font-weight:600; color:#111827; }
+.unit-cell { font-family:monospace; font-weight:500; }
+.ask-cell { font-weight:600; color:#b45309; }
+.small-cell { font-size:11px; }
+.balcony-cell { max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.save-dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-left:4px; }
+.save-dot.saving { background:#f59e0b; }
+.save-dot.saved { background:#22c55e; }
+.save-dot.error { background:#ef4444; }
+</style>
+</head>
+<body>
+
+<div id="app"><div class="loading">Loading dashboard...</div></div>
+
+<script>
+const ALL_STATUSES = ["Negotiation","Offer Made","Offer Accepted","Token Transferred","Documents Awaited","AMA Signed","Email Confirmation","Future Prospect","Followup","Scheduled","Price High","OH Rejected","Dead - Sold","Dead NI","Dead - Legal","Duplicacy"];
+
+const STATUS_COLORS = {
+  "Negotiation":       {bg:"#065f46",text:"#fff"},
+  "Offer Made":        {bg:"#047857",text:"#fff"},
+  "Offer Accepted":    {bg:"#0d9488",text:"#fff"},
+  "Token Transferred": {bg:"#1e40af",text:"#fff"},
+  "Documents Awaited": {bg:"#d97706",text:"#fff"},
+  "AMA Signed":        {bg:"#15803d",text:"#fff"},
+  "Email Confirmation":{bg:"#4f46e5",text:"#fff"},
+  "Future Prospect":   {bg:"#0369a1",text:"#fff"},
+  "Followup":          {bg:"#ca8a04",text:"#fff"},
+  "Scheduled":         {bg:"#64748b",text:"#fff"},
+  "Price High":        {bg:"#be123c",text:"#fff"},
+  "OH Rejected":       {bg:"#e11d48",text:"#fff"},
+  "Dead - Sold":       {bg:"#9f1239",text:"#fff"},
+  "Dead NI":           {bg:"#881337",text:"#fff"},
+  "Dead - Legal":      {bg:"#7f1d1d",text:"#fff"},
+  "Duplicacy":         {bg:"#9ca3af",text:"#fff"},
+  "New":               {bg:"#d1d5db",text:"#374151"},
+};
+
+// ── State ──
+let DATA = [];
+let state = {
+  search: "",
+  cityFilter: "All",
+  statusFilter: "All",
+  pocFilter: "All",
+  expandedId: null,
+  modalImg: null
+};
+
+// Debounce timers for auto-saving comments
+const saveTimers = {};
+const saveStatus = {}; // uid_field -> "saving"|"saved"|"error"
+
+// ── API Calls ──
+async function fetchProperties() {
+  const res = await fetch("/api/properties");
+  if (!res.ok) throw new Error("Failed to fetch");
+  DATA = await res.json();
+}
+
+async function saveField(uid, dbField, value) {
+  const key = uid + "_" + dbField;
+  saveStatus[key] = "saving";
+  renderSaveDot(key);
+
+  try {
+    const res = await fetch("/api/update", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid, field: dbField, value })
+    });
+    if (!res.ok) throw new Error("Save failed");
+    saveStatus[key] = "saved";
+    renderSaveDot(key);
+    setTimeout(() => { saveStatus[key] = ""; renderSaveDot(key); }, 2000);
+  } catch (e) {
+    saveStatus[key] = "error";
+    renderSaveDot(key);
+  }
+}
+
+function renderSaveDot(key) {
+  const el = document.getElementById("dot_" + key);
+  if (!el) return;
+  el.className = "save-dot " + (saveStatus[key] || "");
+}
+
+function debouncedSave(uid, dbField, value) {
+  const key = uid + "_" + dbField;
+  clearTimeout(saveTimers[key]);
+  saveTimers[key] = setTimeout(() => saveField(uid, dbField, value), 800);
+}
+
+// ── Helpers ──
+function getStatus(p) {
+  if (p.statusOverride) return p.statusOverride;
+  if (p.listingSubmittedAt) return "AMA Signed";
+  if (p.finalSubmittedAt) return "AMA Signed";
+  if (p.tokenDealSubmittedAt) return "Token Transferred";
+  if (p.tokenSubmittedAt) return "Documents Awaited";
+  if (p.visitSubmittedAt) return "Followup";
+  if (p.scheduleDate) return "Scheduled";
+  return "New";
+}
+
+function getBalconyView(p) {
+  if (!p.balconyDetails || p.balconyDetails.length === 0) return "";
+  return [...new Set(p.balconyDetails.map(b => b.view))].join(", ");
+}
+
+function getRatePerSqft(p) {
+  if (!p.demandPrice || !p.areaSqft || p.areaSqft === "0") return "";
+  const price = parseFloat(p.demandPrice) * 100000;
+  const area = parseFloat(p.areaSqft);
+  if (isNaN(price) || isNaN(area) || area === 0) return "";
+  return Math.round(price / area).toLocaleString();
+}
+
+function esc(s) { return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function getFiltered() {
+  return DATA.filter(p => {
+    if (state.cityFilter !== "All" && p.city !== state.cityFilter) return false;
+    if (state.statusFilter !== "All" && getStatus(p) !== state.statusFilter) return false;
+    if (state.pocFilter !== "All" && p.assignedBy !== state.pocFilter) return false;
+    if (state.search) {
+      const s = state.search.toLowerCase();
+      return [p.uid,p.society,p.ownerName,p.unitNo,p.fieldExec,p.locality].some(v => (v||"").toLowerCase().includes(s));
+    }
+    return true;
+  });
+}
+
+function getCounts() {
+  const c = {};
+  DATA.forEach(p => { const s = getStatus(p); c[s] = (c[s]||0) + 1; });
+  return c;
+}
+
+// ── Render ──
+function render() {
+  const filtered = getFiltered();
+  const counts = getCounts();
+  const cities = ["All", ...new Set(DATA.map(p => p.city))];
+  const pocs = ["All", ...new Set(DATA.map(p => p.assignedBy).filter(Boolean))];
+  const tabStatuses = ["Followup","Negotiation","Offer Made","Documents Awaited","Token Transferred","AMA Signed","Scheduled"];
+
+  let h = "";
+
+  // Header
+  h += '<div class="header">';
+  h += '<div style="display:flex;align-items:center;gap:10px"><div class="logo">OH</div><div><div style="font-size:16px;font-weight:700">Supply Closure Tracker</div><div style="font-size:11px;color:#6b7280">All Cities &middot; '+DATA.length+' Properties</div></div></div>';
+  h += '<div class="tabs">';
+  tabStatuses.forEach(s => {
+    h += '<span class="tab'+(state.statusFilter===s?' active':'')+'" onclick="toggleTab(\''+s+'\')">'+s+' <span style="font-weight:700;margin-left:2px">'+(counts[s]||0)+'</span></span>';
+  });
+  h += '</div></div>';
+
+  // Filters
+  h += '<div class="filters">';
+  h += '<input value="'+esc(state.search)+'" placeholder="Search society, owner, UID..." oninput="updateSearch(this.value)">';
+  h += '<select onchange="updateFilter(\'cityFilter\',this.value)"><option value="All">All Cities</option>';
+  cities.filter(c=>c!=="All").forEach(c => { h += '<option value="'+esc(c)+'"'+(state.cityFilter===c?' selected':'')+'>'+esc(c)+'</option>'; });
+  h += '</select>';
+  h += '<select onchange="updateFilter(\'statusFilter\',this.value)"><option value="All">All Status</option>';
+  ALL_STATUSES.forEach(s => { h += '<option value="'+esc(s)+'"'+(state.statusFilter===s?' selected':'')+'>'+esc(s)+'</option>'; });
+  h += '</select>';
+  h += '<select onchange="updateFilter(\'pocFilter\',this.value)"><option value="All">All POC</option>';
+  pocs.filter(p=>p!=="All").forEach(p => { h += '<option value="'+esc(p)+'"'+(state.pocFilter===p?' selected':'')+'>'+esc(p)+'</option>'; });
+  h += '</select>';
+  h += '<span style="font-size:11px;color:#6b7280;margin-left:auto">'+filtered.length+' results</span>';
+  h += '</div>';
+
+  // Table
+  h += '<div style="overflow-x:auto"><table><thead><tr>';
+  ["Society","Location","Unit No.","Config","Ask (in Lakhs)","Area (in Sqft)","Floor","Source","Name","Status","Exit Facing","Balcony View","POC","Field Exec","Closure Team Comments","Rahool Comments","Prashant Comments","Demand Team Comments"].forEach((hdr,i) => {
+    h += '<th'+(i>=14?' style="min-width:150px"':'')+'>'+hdr+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+
+  filtered.forEach(p => {
+    const status = getStatus(p);
+    const sc = STATUS_COLORS[status] || STATUS_COLORS["New"];
+    const isExp = state.expandedId === p.uid;
+
+    h += '<tr class="datarow'+(isExp?' expanded':'')+'" onclick="toggleExpand(\''+p.uid+'\')">';
+    h += '<td class="society-cell">'+esc(p.society)+'</td>';
+    h += '<td>'+esc(p.locality)+'</td>';
+    h += '<td class="unit-cell">'+(p.unitNo||"\u2014")+'</td>';
+    h += '<td>'+(p.configuration||"\u2014")+'</td>';
+    h += '<td class="ask-cell">'+(p.demandPrice||"\u2014")+'</td>';
+    h += '<td>'+(p.areaSqft||"\u2014")+'</td>';
+    h += '<td style="text-align:center">'+(p.floor||"\u2014")+'</td>';
+    h += '<td>'+esc(p.source)+'</td>';
+    h += '<td>'+esc(p.ownerName)+'</td>';
+
+    // Status dropdown
+    h += '<td onclick="event.stopPropagation()">';
+    h += '<select class="status-select" style="background:'+sc.bg+';color:'+sc.text+'" onchange="changeStatus(\''+p.uid+'\',this.value)">';
+    ALL_STATUSES.forEach(s => { h += '<option value="'+esc(s)+'"'+(status===s?' selected':'')+' style="background:#fff;color:#111827">'+esc(s)+'</option>'; });
+    h += '</select>';
+    h += '<span id="dot_'+p.uid+'_status_override" class="save-dot '+(saveStatus[p.uid+'_status_override']||'')+'"></span>';
+    h += '</td>';
+
+    h += '<td>'+(p.exitFacing||"\u2014")+'</td>';
+    h += '<td class="balcony-cell">'+(getBalconyView(p)||"\u2014")+'</td>';
+    h += '<td class="small-cell">'+esc(p.assignedBy||"\u2014")+'</td>';
+    h += '<td class="small-cell">'+esc(p.fieldExec||"\u2014")+'</td>';
+
+    // Comment cells
+    const commentFields = [
+      {key:"closureTeamComments", db:"closure_team_comments"},
+      {key:"rahoolComments", db:"rahool_comments"},
+      {key:"prashantComments", db:"prashant_comments"},
+      {key:"demandTeamComments", db:"demand_team_comments"}
+    ];
+    commentFields.forEach(cf => {
+      const dotKey = p.uid + "_" + cf.db;
+      h += '<td onclick="event.stopPropagation()">';
+      h += '<textarea class="comment-input" placeholder="\u2014" oninput="changeComment(\''+p.uid+"','"+cf.db+"','"+cf.key+'\',this.value)">'+esc(p[cf.key]||"")+'</textarea>';
+      h += '<span id="dot_'+dotKey+'" class="save-dot '+(saveStatus[dotKey]||'')+'"></span>';
+      h += '</td>';
+    });
+
+    h += '</tr>';
+
+    // Expanded row
+    if (isExp) {
+      h += '<tr class="expand-row"><td colspan="18"><div class="expand-content">';
+      h += '<div class="detail-tags">';
+      const rate = getRatePerSqft(p);
+      if (rate) h += '<span>Rate/sqft: <b>\u20B9'+rate+'</b></span>';
+      h += '<span>Visit: <b style="color:'+(p.visitSubmittedAt?'#059669':'#9ca3af')+'">'+(p.visitSubmittedAt?'Yes':'No')+'</b></span>';
+      if (p.balconyDetails && p.balconyDetails.length > 0) h += '<span>Photos: <b style="color:#2563eb">'+p.balconyDetails.length+'</b></span>';
+      if (p.bathrooms) h += '<span>Toilets: <b>'+esc(p.bathrooms)+'</b></span>';
+      if (p.balconies) h += '<span>Balconies: <b>'+esc(p.balconies)+'</b></span>';
+      if (p.parking) h += '<span>Parking: <b>'+esc(p.parking)+'</b></span>';
+      if (p.furnishing) h += '<span>Furnishing: <b>'+esc(p.furnishing)+'</b></span>';
+      if (p.registryStatus) h += '<span>Registry: <b>'+esc(p.registryStatus)+'</b></span>';
+      if (p.occupancyStatus) h += '<span>Occupancy: <b>'+esc(p.occupancyStatus)+'</b></span>';
+      if (p.guaranteedSalePrice) h += '<span>GSP: <b>\u20B9'+esc(p.guaranteedSalePrice)+'L</b></span>';
+      if (p.initialPeriod) h += '<span>Contract: <b>'+esc(p.initialPeriod)+'d</b></span>';
+      if (p.gracePeriod) h += '<span>Grace: <b>'+esc(p.gracePeriod)+'d</b></span>';
+      if (p.tokenAmountRequested) h += '<span>Token Req: <b>\u20B9'+Number(p.tokenAmountRequested).toLocaleString()+'</b></span>';
+      if (p.videoLink) h += '<a href="'+esc(p.videoLink)+'" target="_blank" style="color:#2563eb;text-decoration:none">\u25B6 Video/Photos</a>';
+      h += '</div>';
+
+      if (p.documentsAvailable && p.documentsAvailable.length > 0) {
+        h += '<div style="font-size:11px;color:#6b7280;margin-bottom:12px">Docs: '+p.documentsAvailable.map(d=>esc(d)).join(' \u00B7 ')+'</div>';
+      }
+
+      if (p.balconyDetails && p.balconyDetails.length > 0) {
+        h += '<div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">Balcony Views & Compass</div>';
+        h += '<div class="img-strip">';
+        if (p.exitCompassImage) {
+          h += '<div style="min-width:100px;text-align:center"><img src="'+esc(p.exitCompassImage)+'" width="100" height="70" onclick="event.stopPropagation();showModal(\''+esc(p.exitCompassImage)+'\')"><div style="font-size:10px;color:#6b7280;margin-top:3px">Exit Compass</div></div>';
+        }
+        p.balconyDetails.forEach(b => {
+          h += '<div class="img-card"><div style="display:flex;gap:4px">';
+          h += '<img src="'+esc(b.view_image)+'" width="80" height="70" onclick="event.stopPropagation();showModal(\''+esc(b.view_image)+'\')">';
+          h += '<img src="'+esc(b.compass_image)+'" width="50" height="70" onclick="event.stopPropagation();showModal(\''+esc(b.compass_image)+'\')">';
+          h += '</div><div style="font-size:10px;color:#6b7280;margin-top:3px">'+esc(b.attached_to)+' \u00B7 '+esc(b.facing)+' \u00B7 '+esc(b.view)+'</div></div>';
+        });
+        h += '</div>';
+      } else {
+        h += '<div style="font-size:11px;color:#9ca3af;font-style:italic">Visit not completed \u2014 no images available</div>';
+      }
+
+      h += '</div></td></tr>';
+    }
+  });
+
+  h += '</tbody></table></div>';
+
+  // Modal
+  if (state.modalImg) {
+    h += '<div class="modal-overlay" onclick="closeModal()"><img src="'+esc(state.modalImg)+'"></div>';
+  }
+
+  document.getElementById("app").innerHTML = h;
+}
+
+// ── Event Handlers ──
+function toggleTab(s) { state.statusFilter = state.statusFilter === s ? "All" : s; render(); }
+function updateSearch(v) { state.search = v; render(); }
+function updateFilter(key, v) { state[key] = v; render(); }
+function toggleExpand(uid) { state.expandedId = state.expandedId === uid ? null : uid; render(); }
+function showModal(src) { state.modalImg = src; render(); }
+function closeModal() { state.modalImg = null; render(); }
+
+function changeStatus(uid, newStatus) {
+  // Update local data immediately
+  const prop = DATA.find(p => p.uid === uid);
+  if (prop) prop.statusOverride = newStatus;
+  render();
+  // Save to database
+  saveField(uid, "status_override", newStatus);
+}
+
+function changeComment(uid, dbField, jsField, value) {
+  // Update local data immediately (no re-render to keep cursor position)
+  const prop = DATA.find(p => p.uid === uid);
+  if (prop) prop[jsField] = value;
+  // Debounced save to database
+  debouncedSave(uid, dbField, value);
+}
+
+// ── Init ──
+async function init() {
+  try {
+    await fetchProperties();
+    render();
+  } catch (err) {
+    document.getElementById("app").innerHTML =
+      '<div class="loading" style="color:#ef4444">Failed to load data. Check your API connection.<br><br><small>'+esc(err.message)+'</small></div>';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

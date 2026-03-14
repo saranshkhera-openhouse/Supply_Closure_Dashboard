@@ -1,0 +1,45 @@
+const { getDB } = require("./_db");
+
+const ALLOWED_FIELDS = [
+  "status_override",
+  "closure_team_comments",
+  "rahool_comments",
+  "prashant_comments",
+  "demand_team_comments"
+];
+
+module.exports = async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "PATCH, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "PATCH") return res.status(405).json({ error: "Method not allowed" });
+
+  try {
+    const { uid, field, value } = req.body;
+
+    if (!uid || !field) {
+      return res.status(400).json({ error: "uid and field are required" });
+    }
+
+    if (!ALLOWED_FIELDS.includes(field)) {
+      return res.status(400).json({ error: "Invalid field: " + field });
+    }
+
+    const sql = getDB();
+
+    // Use parameterized query for safety
+    // We need dynamic column name but the value is parameterized
+    const query = `UPDATE properties SET ${field} = $1 WHERE uid = $2 RETURNING uid`;
+    const result = await sql(query, [value || "", uid]);
+
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Property not found" });
+    }
+
+    return res.status(200).json({ success: true, uid, field, value });
+  } catch (err) {
+    console.error("Error updating property:", err);
+    return res.status(500).json({ error: "Failed to update property" });
+  }
+};
