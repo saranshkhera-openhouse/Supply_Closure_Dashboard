@@ -90,7 +90,7 @@ function transformRow(r, index, defaultCity) {
     furnishing: "",
     furnishingDetails: [],
     exitFacing: r["Exit facing"] || "",
-    videoLink: "",
+    videoLink: r["Video/Photos Link"] || "",
     registryStatus: "",
     occupancyStatus: r["Occupancy Status"] || "",
     guaranteedSalePrice: r["Final Closure Price"] || "",
