@@ -1,5 +1,6 @@
 const { getDB } = require("./_db");
 const { requireAuth } = require("./_auth");
+const legacyData = require("./_legacy.json");
 
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -11,7 +12,7 @@ module.exports = async function handler(req, res) {
   try {
     const sql = getDB();
 
-    // Step 1: Get all properties
+    // Step 1: Get live properties from Neon
     const rows = await sql`
       SELECT 
         uid, source, demand_price,
@@ -34,59 +35,58 @@ module.exports = async function handler(req, res) {
       ORDER BY created_at DESC
     `;
 
-    // Step 2: Determine visibility
-    // Admins see everything
+    const liveProperties = rows.map(transformRow);
+
+    // Step 2: Merge with legacy data
+    // Legacy rows have isLegacy: true and uid starting with "LEGACY-"
+    const allProperties = [...liveProperties, ...legacyData];
+
+    // Step 3: Apply visibility filtering
     if (user.role === "admin") {
-      return res.status(200).json(rows.map(transformRow));
+      return res.status(200).json(allProperties);
     }
 
-    // Non-admins: find their display name(s) and their reportees' names
+    // Non-admins: filter by team directory
     const teamRows = await sql`SELECT email, display_name, manager_email FROM team_directory WHERE is_active = true`;
 
     const userEmail = user.email.toLowerCase();
 
-    // Find this user's display name(s)
     const myNames = teamRows
       .filter(t => t.email.toLowerCase() === userEmail)
       .map(t => t.display_name.toLowerCase());
 
-    // Find reportees (people whose manager_email is this user's email)
     const reporteeNames = teamRows
       .filter(t => t.manager_email.toLowerCase() === userEmail)
       .map(t => t.display_name.toLowerCase());
 
-    // Combined: names I can see = my names + my reportees' names
     const visibleNames = [...new Set([...myNames, ...reporteeNames])];
 
     if (visibleNames.length === 0) {
-      // User not in team directory — empty dashboard
       return res.status(200).json([]);
     }
 
-    // Filter rows: match against assigned_by, field_exec, token_requested_by
-    const filtered = rows.filter(r => {
-      const assignedBy = (r.assigned_by || "").toLowerCase();
-      const fieldExec = (r.field_exec || "").toLowerCase();
-      const tokenBy = (r.token_requested_by || "").toLowerCase();
+    const filtered = allProperties.filter(r => {
+      const assignedBy = (r.assignedBy || "").toLowerCase();
+      const fieldExec = (r.fieldExec || "").toLowerCase();
+      const tokenBy = (r.tokenRequestedBy || "").toLowerCase();
 
       return visibleNames.some(name =>
         assignedBy.includes(name) ||
         fieldExec.includes(name) ||
         tokenBy.includes(name) ||
-        name.includes(assignedBy) && assignedBy.length > 2 ||
-        name.includes(fieldExec) && fieldExec.length > 2 ||
-        name.includes(tokenBy) && tokenBy.length > 2
+        (name.includes(assignedBy) && assignedBy.length > 2) ||
+        (name.includes(fieldExec) && fieldExec.length > 2) ||
+        (name.includes(tokenBy) && tokenBy.length > 2)
       );
     });
 
-    return res.status(200).json(filtered.map(transformRow));
+    return res.status(200).json(filtered);
   } catch (err) {
     console.error("Error fetching properties:", err);
     return res.status(500).json({ error: "Failed to fetch properties" });
   }
 };
 
-// Safely parse a JSON field
 function parseJson(val) {
   if (!val) return [];
   if (Array.isArray(val)) return val;
@@ -105,6 +105,7 @@ function transformRow(r) {
 
   return {
     uid: r.uid,
+    isLegacy: false,
     source: r.source || "",
     demandPrice: r.demand_price || "",
     ownerName,

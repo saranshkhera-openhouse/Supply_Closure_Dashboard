@@ -24,6 +24,11 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: "uid and field are required" });
     }
 
+    // Legacy rows are read-only
+    if (uid.startsWith("LEGACY-")) {
+      return res.status(400).json({ error: "Legacy records are read-only" });
+    }
+
     if (!ALLOWED_FIELDS.includes(field)) {
       return res.status(400).json({ error: "Invalid field: " + field });
     }

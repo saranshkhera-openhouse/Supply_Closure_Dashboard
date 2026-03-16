@@ -317,20 +317,30 @@ function render() {
     h += '<td>'+esc(p.source)+'</td>';
     h += '<td>'+esc(p.ownerName)+'</td>';
 
-    // Status dropdown
+    // Status dropdown (read-only for legacy)
     h += '<td onclick="event.stopPropagation()">';
-    h += '<select class="status-select" style="background:'+sc.bg+';color:'+sc.text+'" onchange="changeStatus(\''+p.uid+'\',this.value)">';
-    ALL_STATUSES.forEach(s => { h += '<option value="'+esc(s)+'"'+(status===s?' selected':'')+' style="background:#fff;color:#111827">'+esc(s)+'</option>'; });
-    h += '</select>';
-    h += '<span id="dot_'+p.uid+'_status_override" class="save-dot '+(saveStatus[p.uid+'_status_override']||'')+'"></span>';
+    if (p.isLegacy) {
+      h += '<span style="background:'+sc.bg+';color:'+sc.text+';padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">'+esc(status)+'</span>';
+    } else {
+      h += '<select class="status-select" style="background:'+sc.bg+';color:'+sc.text+'" onchange="changeStatus(\''+p.uid+'\',this.value)">';
+      ALL_STATUSES.forEach(s => { h += '<option value="'+esc(s)+'"'+(status===s?' selected':'')+' style="background:#fff;color:#111827">'+esc(s)+'</option>'; });
+      h += '</select>';
+      h += '<span id="dot_'+p.uid+'_status_override" class="save-dot '+(saveStatus[p.uid+'_status_override']||'')+'"></span>';
+    }
     h += '</td>';
 
     h += '<td>'+(p.exitFacing||"\u2014")+'</td>';
-    h += '<td class="balcony-cell">'+(getBalconyView(p)||"\u2014")+'</td>';
+    h += '<td class="balcony-cell">'+(getBalconyView(p)||p.balconyView||"\u2014")+'</td>';
     h += '<td class="small-cell">'+esc(p.assignedBy||"\u2014")+'</td>';
-    h += '<td onclick="event.stopPropagation()"><input type="text" value="'+esc(p.offerPrice||'')+'" placeholder="\u2014" oninput="changeOffer(\''+p.uid+'\',this.value)" style="width:70px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;font-weight:600;color:#047857;outline:none;font-family:inherit;text-align:right"><span id="dot_'+p.uid+'_offer_price" class="save-dot '+(saveStatus[p.uid+'_offer_price']||'')+'"></span></td>';
 
-    // Comment cells
+    // Offer field (skip for legacy)
+    if (!p.isLegacy) {
+      h += '<td onclick="event.stopPropagation()"><input type="text" value="'+esc(p.offerPrice||'')+'" placeholder="\u2014" oninput="changeOffer(\''+p.uid+'\',this.value)" style="width:70px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;font-weight:600;color:#047857;outline:none;font-family:inherit;text-align:right"><span id="dot_'+p.uid+'_offer_price" class="save-dot '+(saveStatus[p.uid+'_offer_price']||'')+'"></span></td>';
+    } else {
+      h += '<td>'+esc(p.offer||"\u2014")+'</td>';
+    }
+
+    // Comment cells (read-only for legacy)
     const commentFields = [
       {key:"closureTeamComments", db:"closure_team_comments"},
       {key:"rahoolComments", db:"rahool_comments"},
@@ -338,11 +348,16 @@ function render() {
       {key:"demandTeamComments", db:"demand_team_comments"}
     ];
     commentFields.forEach(cf => {
-      const dotKey = p.uid + "_" + cf.db;
-      h += '<td onclick="event.stopPropagation()">';
-      h += '<textarea class="comment-input" placeholder="\u2014" oninput="changeComment(\''+p.uid+"','"+cf.db+"','"+cf.key+'\',this.value)">'+esc(p[cf.key]||"")+'</textarea>';
-      h += '<span id="dot_'+dotKey+'" class="save-dot '+(saveStatus[dotKey]||'')+'"></span>';
-      h += '</td>';
+      if (p.isLegacy) {
+        const val = p[cf.key] || "";
+        h += '<td style="font-size:11px;color:#6b7280;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(val)+'">'+esc(val||"\u2014")+'</td>';
+      } else {
+        const dotKey = p.uid + "_" + cf.db;
+        h += '<td onclick="event.stopPropagation()">';
+        h += '<textarea class="comment-input" placeholder="\u2014" oninput="changeComment(\''+p.uid+"','"+cf.db+"','"+cf.key+'\',this.value)">'+esc(p[cf.key]||"")+'</textarea>';
+        h += '<span id="dot_'+dotKey+'" class="save-dot '+(saveStatus[dotKey]||'')+'"></span>';
+        h += '</td>';
+      }
     });
 
     h += '</tr>';
