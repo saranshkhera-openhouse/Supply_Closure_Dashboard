@@ -73,17 +73,24 @@ module.exports = async function handler(req, res) {
     }
 
     // Non-admins: filter by team directory
-    const teamRows = await sql`SELECT email, display_name, manager_email FROM team_directory WHERE is_active = true`;
+    let teamRows = [];
+    try {
+      teamRows = await sql`SELECT email, display_name, manager_email FROM team_directory WHERE is_active = true`;
+    } catch (teamErr) {
+      console.error("team_directory query failed:", teamErr.message);
+      // If table doesn't exist, return all data (no filtering)
+      return res.status(200).json(allProperties);
+    }
 
     const userEmail = user.email.toLowerCase();
 
     const myNames = teamRows
-      .filter(t => t.email.toLowerCase() === userEmail)
-      .map(t => t.display_name.toLowerCase());
+      .filter(t => (t.email || "").toLowerCase() === userEmail)
+      .map(t => (t.display_name || "").toLowerCase());
 
     const reporteeNames = teamRows
-      .filter(t => t.manager_email.toLowerCase() === userEmail)
-      .map(t => t.display_name.toLowerCase());
+      .filter(t => (t.manager_email || "").toLowerCase() === userEmail)
+      .map(t => (t.display_name || "").toLowerCase());
 
     const visibleNames = [...new Set([...myNames, ...reporteeNames])];
 
@@ -109,7 +116,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(filtered);
   } catch (err) {
     console.error("Error fetching properties:", err);
-    return res.status(500).json({ error: "Failed to fetch properties" });
+    return res.status(500).json({ error: "Failed to fetch properties: " + err.message });
   }
 };
 

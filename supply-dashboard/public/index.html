@@ -127,16 +127,33 @@ const saveStatus = {}; // uid_field -> "saving"|"saved"|"error"
 
 // ── API Calls ──
 async function fetchProperties() {
-  const res = await fetch("/api/properties");
-  if (!res.ok) throw new Error("Failed to fetch");
-  DATA = await res.json();
-  DATA.forEach(p => {
-    p.balconyDetails = ensureArray(p.balconyDetails);
-    p.documentsAvailable = ensureArray(p.documentsAvailable);
-    p.furnishingDetails = ensureArray(p.furnishingDetails);
-  });
-  const now = new Date();
-  lastRefreshed = now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit" });
+  let attempts = 0;
+  while (attempts < 2) {
+    try {
+      const res = await fetch("/api/properties");
+      if (res.status === 401) {
+        window.location.href = "/login.html";
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Server error " + res.status);
+      }
+      DATA = await res.json();
+      DATA.forEach(p => {
+        p.balconyDetails = ensureArray(p.balconyDetails);
+        p.documentsAvailable = ensureArray(p.documentsAvailable);
+        p.furnishingDetails = ensureArray(p.furnishingDetails);
+      });
+      const now = new Date();
+      lastRefreshed = now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit" });
+      return;
+    } catch(e) {
+      attempts++;
+      if (attempts >= 2) throw e;
+      await new Promise(r => setTimeout(r, 1000)); // wait 1s before retry
+    }
+  }
 }
 
 async function refreshData() {
@@ -243,7 +260,20 @@ function getCounts() {
 }
 
 // ── Render ──
+let isRendering = false;
 function render() {
+  if (isRendering) return;
+  isRendering = true;
+  try {
+    _render();
+  } catch(e) {
+    console.error("Render error:", e);
+  } finally {
+    isRendering = false;
+  }
+}
+
+function _render() {
   const filtered = getFiltered();
   const counts = getCounts();
   const cities = ["All", ...new Set(DATA.map(p => p.city))];
@@ -278,7 +308,7 @@ function render() {
 
   // Filters
   h += '<div class="filters">';
-  h += '<input value="'+esc(state.search)+'" placeholder="Search society, owner, UID..." oninput="updateSearch(this.value)">';
+  h += '<input id="searchBox" value="'+esc(state.search)+'" placeholder="Search society, owner, UID..." oninput="updateSearch(this.value)">';
   h += '<select onchange="updateFilter(\'cityFilter\',this.value)"><option value="All">All Cities</option>';
   cities.filter(c=>c!=="All").forEach(c => { h += '<option value="'+esc(c)+'"'+(state.cityFilter===c?' selected':'')+'>'+esc(c)+'</option>'; });
   h += '</select>';
@@ -525,8 +555,22 @@ function render() {
 
 // ── Event Handlers ──
 function toggleTab(s) { state.statusFilter = state.statusFilter === s ? "All" : s; render(); }
-function updateSearch(v) { state.search = v; render(); }
-function updateFilter(key, v) { state[key] = v; render(); }
+let searchTimer = null;
+function updateSearch(v) {
+  state.search = v;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(function() {
+    const el = document.getElementById("searchBox");
+    const pos = el ? el.selectionStart : 0;
+    render();
+    const el2 = document.getElementById("searchBox");
+    if (el2) { el2.focus(); el2.selectionStart = el2.selectionEnd = pos; }
+  }, 200);
+}
+function updateFilter(key, v) {
+  state[key] = v;
+  try { render(); } catch(e) { console.error("Render error on filter:", e); }
+}
 function toggleExpand(uid) {
   state.expandedId = state.expandedId === uid ? null : uid;
   try { render(); } catch(e) { console.error("Render crash:", e); alert("Render error: " + e.message); }
@@ -658,9 +702,18 @@ async function removeTeamMember(id) {
 // ── Init ──
 async function init() {
   try {
-    // Check auth first
-    const authRes = await fetch("/api/auth/me");
-    if (!authRes.ok) {
+    // Check auth with retry for cold starts
+    let authRes;
+    for (let i = 0; i < 2; i++) {
+      try {
+        authRes = await fetch("/api/auth/me");
+        if (authRes.ok) break;
+      } catch(e) {
+        if (i === 1) throw e;
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+    if (!authRes || !authRes.ok) {
       window.location.href = "/login.html";
       return;
     }
