@@ -49,7 +49,7 @@ tr.datarow.expanded { background:#f8fafc; }
 .user-bar .admin-btn:hover { background:#1f2937; }
 /* Admin Panel */
 .admin-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; display:flex; align-items:center; justify-content:center; }
-.admin-panel { background:#fff; border-radius:12px; width:580px; max-height:80vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.15); }
+.admin-panel { background:#fff; border-radius:12px; width:640px; max-height:80vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.15); }
 .admin-header { padding:16px 20px; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; }
 .admin-header h2 { font-size:16px; font-weight:700; }
 .admin-close { background:none; border:none; font-size:20px; cursor:pointer; color:#6b7280; }
@@ -105,7 +105,9 @@ let DATA = [];
 let currentUser = null; // { email, name, role }
 let adminUsers = [];
 let adminRequests = [];
+let adminTeam = [];
 let showAdminPanel = false;
+let adminTab = "users"; // "users" | "team"
 let lastRefreshed = "";
 let state = {
   search: "",
@@ -398,7 +400,15 @@ function render() {
     }
   });
 
-  h += '</tbody></table></div>';
+  h += '</tbody></table>';
+  if (filtered.length === 0) {
+    if (DATA.length === 0 && currentUser && currentUser.role !== 'admin') {
+      h += '<div style="text-align:center;padding:60px 20px;color:#6b7280"><div style="font-size:32px;margin-bottom:12px">&#128274;</div><div style="font-size:15px;font-weight:600;color:#374151;margin-bottom:6px">No records visible to you</div><div style="font-size:13px">You are not assigned to any properties yet. Contact your manager or admin for access.</div></div>';
+    } else {
+      h += '<div style="text-align:center;padding:40px 20px;color:#9ca3af;font-size:13px">No properties match the current filters</div>';
+    }
+  }
+  h += '</div>';
 
   // Modal
   if (state.modalImg) {
@@ -407,47 +417,100 @@ function render() {
 
   // Admin Panel
   if (showAdminPanel && currentUser && currentUser.role === 'admin') {
+    const pending = adminRequests.filter(r => r.status === 'pending');
     h += '<div class="admin-overlay" onclick="if(event.target===this)closeAdmin()">';
     h += '<div class="admin-panel">';
-    h += '<div class="admin-header"><h2>Manage Users</h2><button class="admin-close" onclick="closeAdmin()">&times;</button></div>';
+    h += '<div class="admin-header"><h2>Admin Panel</h2><button class="admin-close" onclick="closeAdmin()">&times;</button></div>';
+
+    // Tabs
+    h += '<div style="display:flex;border-bottom:1px solid #e5e7eb;padding:0 20px">';
+    h += '<span onclick="switchAdminTab(\'users\')" style="padding:8px 16px;font-size:13px;font-weight:'+(adminTab==='users'?'600':'400')+';cursor:pointer;border-bottom:2px solid '+(adminTab==='users'?'#111827':'transparent')+';color:'+(adminTab==='users'?'#111827':'#6b7280')+'">Users';
+    if (pending.length > 0) h += ' <span class="pending-badge">'+pending.length+'</span>';
+    h += '</span>';
+    h += '<span onclick="switchAdminTab(\'team\')" style="padding:8px 16px;font-size:13px;font-weight:'+(adminTab==='team'?'600':'400')+';cursor:pointer;border-bottom:2px solid '+(adminTab==='team'?'#111827':'transparent')+';color:'+(adminTab==='team'?'#111827':'#6b7280')+'">Team Directory ('+adminTeam.length+')</span>';
+    h += '</div>';
+
     h += '<div class="admin-body">';
 
-    // Add user form
-    h += '<div class="admin-section"><h3>Add User</h3>';
-    h += '<div class="admin-add">';
-    h += '<input id="addEmail" placeholder="email@openhouse.in">';
-    h += '<select id="addRole"><option value="viewer">Viewer</option><option value="admin">Admin</option></select>';
-    h += '<button onclick="addUser()">Add User</button>';
-    h += '</div></div>';
+    if (adminTab === 'users') {
+      // Add user form
+      h += '<div class="admin-section"><h3>Add User</h3>';
+      h += '<div class="admin-add">';
+      h += '<input id="addEmail" placeholder="email@openhouse.in">';
+      h += '<select id="addRole"><option value="viewer">Viewer</option><option value="admin">Admin</option></select>';
+      h += '<button onclick="addUser()">Add User</button>';
+      h += '</div></div>';
 
-    // Pending access requests
-    const pending = adminRequests.filter(r => r.status === 'pending');
-    if (pending.length > 0) {
-      h += '<div class="admin-section"><h3>Access Requests <span class="pending-badge">'+pending.length+'</span></h3>';
+      // Pending access requests
+      if (pending.length > 0) {
+        h += '<div class="admin-section"><h3>Access Requests <span class="pending-badge">'+pending.length+'</span></h3>';
+        h += '<div class="admin-list">';
+        pending.forEach(r => {
+          h += '<div class="admin-row">';
+          h += '<div><span class="email">'+esc(r.email)+'</span>';
+          if (r.name) h += '<span style="color:#6b7280;margin-left:6px">'+esc(r.name)+'</span>';
+          h += '</div>';
+          h += '<div class="req-actions">';
+          h += '<button class="approve" onclick="handleRequest('+r.id+',\'approve\')">Approve</button>';
+          h += '<button class="reject" onclick="handleRequest('+r.id+',\'reject\')">Reject</button>';
+          h += '</div></div>';
+        });
+        h += '</div></div>';
+      }
+
+      // Current users list
+      h += '<div class="admin-section"><h3>Current Users ('+adminUsers.length+')</h3>';
       h += '<div class="admin-list">';
-      pending.forEach(r => {
+      adminUsers.forEach(u => {
         h += '<div class="admin-row">';
-        h += '<div><span class="email">'+esc(r.email)+'</span>';
-        if (r.name) h += '<span style="color:#6b7280;margin-left:6px">'+esc(r.name)+'</span>';
+        h += '<div><span class="email">'+esc(u.email)+'</span><span class="role'+(u.role==='admin'?' admin':'')+'">'+u.role+'</span></div>';
+        h += '<button onclick="removeUser(\''+esc(u.email)+'\')">Remove</button>';
         h += '</div>';
-        h += '<div class="req-actions">';
-        h += '<button class="approve" onclick="handleRequest('+r.id+',\'approve\')">Approve</button>';
-        h += '<button class="reject" onclick="handleRequest('+r.id+',\'reject\')">Reject</button>';
+      });
+      h += '</div></div>';
+
+    } else if (adminTab === 'team') {
+      // Add team member form
+      h += '<div class="admin-section"><h3>Add Team Member</h3>';
+      h += '<div style="font-size:11px;color:#6b7280;margin-bottom:8px">Display name must exactly match names in assigned_by / field_exec columns</div>';
+      h += '<div class="admin-add">';
+      h += '<input id="teamEmail" placeholder="email@openhouse.in" style="flex:1">';
+      h += '<input id="teamName" placeholder="Display Name" style="flex:1">';
+      h += '</div>';
+      h += '<div class="admin-add" style="margin-top:4px">';
+      h += '<select id="teamManager" style="flex:1"><option value="">No Manager</option>';
+      adminTeam.forEach(t => {
+        h += '<option value="'+esc(t.email)+'">'+esc(t.display_name)+' ('+esc(t.email)+')</option>';
+      });
+      h += '</select>';
+      h += '<button onclick="addTeamMember()">Add</button>';
+      h += '</div></div>';
+
+      // How visibility works
+      h += '<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:#0369a1">';
+      h += '<b>How visibility works:</b> Each person sees records where their Display Name appears in Assigned By, Field Exec, or Token By. They also see records of their direct reportees. Admins see everything.';
+      h += '</div>';
+
+      // Team list
+      h += '<div class="admin-section"><h3>Team Directory</h3>';
+      h += '<div class="admin-list">';
+      if (adminTeam.length === 0) {
+        h += '<div class="admin-row" style="color:#9ca3af;justify-content:center">No team members yet</div>';
+      }
+      adminTeam.forEach(t => {
+        const mgr = adminTeam.find(m => m.email.toLowerCase() === (t.manager_email||'').toLowerCase());
+        h += '<div class="admin-row" style="flex-wrap:wrap;gap:4px">';
+        h += '<div style="flex:1;min-width:200px">';
+        h += '<div><span class="email">'+esc(t.display_name)+'</span></div>';
+        h += '<div style="font-size:11px;color:#6b7280">'+esc(t.email);
+        if (mgr) h += ' &rarr; reports to <b>'+esc(mgr.display_name)+'</b>';
+        h += '</div></div>';
+        h += '<div style="display:flex;gap:4px">';
+        h += '<button onclick="removeTeamMember('+t.id+')" style="border-color:#fecaca;color:#ef4444">Remove</button>';
         h += '</div></div>';
       });
       h += '</div></div>';
     }
-
-    // Current users list
-    h += '<div class="admin-section"><h3>Current Users ('+adminUsers.length+')</h3>';
-    h += '<div class="admin-list">';
-    adminUsers.forEach(u => {
-      h += '<div class="admin-row">';
-      h += '<div><span class="email">'+esc(u.email)+'</span><span class="role'+(u.role==='admin'?' admin':'')+'">'+u.role+'</span></div>';
-      h += '<button onclick="removeUser(\''+esc(u.email)+'\')">Remove</button>';
-      h += '</div>';
-    });
-    h += '</div></div>';
 
     h += '</div></div></div>';
   }
@@ -503,11 +566,14 @@ async function logout() {
 // ── Admin ──
 async function openAdmin() {
   showAdminPanel = true;
-  await Promise.all([loadUsers(), loadRequests()]);
+  adminTab = "users";
+  await Promise.all([loadUsers(), loadRequests(), loadTeam()]);
   render();
 }
 
 function closeAdmin() { showAdminPanel = false; render(); }
+
+function switchAdminTab(tab) { adminTab = tab; render(); }
 
 async function loadUsers() {
   try {
@@ -520,6 +586,13 @@ async function loadRequests() {
   try {
     const res = await fetch("/api/admin/requests");
     if (res.ok) adminRequests = await res.json();
+  } catch {}
+}
+
+async function loadTeam() {
+  try {
+    const res = await fetch("/api/admin/team");
+    if (res.ok) adminTeam = await res.json();
   } catch {}
 }
 
@@ -557,6 +630,32 @@ async function handleRequest(id, action) {
     body: JSON.stringify({ id, action })
   });
   await Promise.all([loadUsers(), loadRequests()]);
+  render();
+}
+
+async function addTeamMember() {
+  const email = document.getElementById("teamEmail").value.trim();
+  const display_name = document.getElementById("teamName").value.trim();
+  const manager_email = document.getElementById("teamManager").value;
+  if (!email || !display_name) return alert("Email and Display Name are required");
+
+  await fetch("/api/admin/team", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, display_name, manager_email })
+  });
+  await loadTeam();
+  render();
+}
+
+async function removeTeamMember(id) {
+  if (!confirm("Remove this team member? Their visibility rules will be removed.")) return;
+  await fetch("/api/admin/team", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id })
+  });
+  await loadTeam();
   render();
 }
 
