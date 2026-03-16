@@ -24,9 +24,18 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: "uid and field are required" });
     }
 
-    // Legacy rows are read-only
+    // Legacy rows — save to separate legacy_edits table
     if (uid.startsWith("LEGACY-")) {
-      return res.status(400).json({ error: "Legacy records are read-only" });
+      if (!ALLOWED_FIELDS.includes(field)) {
+        return res.status(400).json({ error: "Invalid field: " + field });
+      }
+      const sql = getDB();
+      await sql`
+        INSERT INTO legacy_edits (uid, field, value, updated_at)
+        VALUES (${uid}, ${field}, ${value || ""}, NOW())
+        ON CONFLICT (uid, field) DO UPDATE SET value = ${value || ""}, updated_at = NOW()
+      `;
+      return res.status(200).json({ success: true, uid, field, value });
     }
 
     if (!ALLOWED_FIELDS.includes(field)) {

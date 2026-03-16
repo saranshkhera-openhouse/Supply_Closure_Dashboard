@@ -37,9 +37,35 @@ module.exports = async function handler(req, res) {
 
     const liveProperties = rows.map(transformRow);
 
-    // Step 2: Merge with legacy data
-    // Legacy rows have isLegacy: true and uid starting with "LEGACY-"
-    const allProperties = [...liveProperties, ...legacyData];
+    // Step 2: Load legacy edits from DB and apply to CSV data
+    let legacyWithEdits = legacyData.map(r => ({...r})); // shallow copy
+    try {
+      const edits = await sql`SELECT uid, field, value FROM legacy_edits`;
+      const editMap = {}; // uid -> { field: value }
+      edits.forEach(e => {
+        if (!editMap[e.uid]) editMap[e.uid] = {};
+        editMap[e.uid][e.field] = e.value;
+      });
+      const FIELD_TO_KEY = {
+        "status_override": "statusOverride",
+        "offer_price": "offerPrice",
+        "closure_team_comments": "closureTeamComments",
+        "rahool_comments": "rahoolComments",
+        "prashant_comments": "prashantComments",
+        "demand_team_comments": "demandTeamComments",
+      };
+      legacyWithEdits.forEach(p => {
+        const saved = editMap[p.uid];
+        if (!saved) return;
+        Object.entries(saved).forEach(([dbField, val]) => {
+          const jsKey = FIELD_TO_KEY[dbField];
+          if (jsKey) p[jsKey] = val;
+        });
+      });
+    } catch {}
+
+    // Step 3: Merge live + legacy
+    const allProperties = [...liveProperties, ...legacyWithEdits];
 
     // Step 3: Apply visibility filtering
     if (user.role === "admin") {

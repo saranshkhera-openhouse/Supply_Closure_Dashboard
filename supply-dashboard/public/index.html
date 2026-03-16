@@ -144,7 +144,7 @@ async function refreshData() {
   if (btn) { btn.textContent = "Refreshing..."; btn.disabled = true; }
   try {
     await fetchProperties();
-    loadLegacyComments();
+
     render();
   } catch (err) {
     alert("Refresh failed: " + err.message);
@@ -320,28 +320,20 @@ function render() {
     h += '<td>'+esc(p.source)+'</td>';
     h += '<td>'+esc(p.ownerName)+'</td>';
 
-    // Status dropdown (read-only for legacy)
+    // Status dropdown — editable for all rows
     h += '<td onclick="event.stopPropagation()">';
-    if (p.isLegacy) {
-      h += '<span style="background:'+sc.bg+';color:'+sc.text+';padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap">'+esc(status)+'</span>';
-    } else {
-      h += '<select class="status-select" style="background:'+sc.bg+';color:'+sc.text+'" onchange="changeStatus(\''+p.uid+'\',this.value)">';
-      ALL_STATUSES.forEach(s => { h += '<option value="'+esc(s)+'"'+(status===s?' selected':'')+' style="background:#fff;color:#111827">'+esc(s)+'</option>'; });
-      h += '</select>';
-      h += '<span id="dot_'+p.uid+'_status_override" class="save-dot '+(saveStatus[p.uid+'_status_override']||'')+'"></span>';
-    }
+    h += '<select class="status-select" style="background:'+sc.bg+';color:'+sc.text+'" onchange="changeStatus(\''+p.uid+'\',this.value)">';
+    ALL_STATUSES.forEach(s => { h += '<option value="'+esc(s)+'"'+(status===s?' selected':'')+' style="background:#fff;color:#111827">'+esc(s)+'</option>'; });
+    h += '</select>';
+    h += '<span id="dot_'+p.uid+'_status_override" class="save-dot '+(saveStatus[p.uid+'_status_override']||'')+'"></span>';
     h += '</td>';
 
     h += '<td>'+(p.exitFacing||"\u2014")+'</td>';
     h += '<td class="balcony-cell">'+(getBalconyView(p)||p.balconyView||"\u2014")+'</td>';
     h += '<td class="small-cell">'+esc(p.assignedBy||"\u2014")+'</td>';
 
-    // Offer field (skip for legacy)
-    if (!p.isLegacy) {
-      h += '<td onclick="event.stopPropagation()"><input type="text" value="'+esc(p.offerPrice||'')+'" placeholder="\u2014" oninput="changeOffer(\''+p.uid+'\',this.value)" style="width:70px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;font-weight:600;color:#047857;outline:none;font-family:inherit;text-align:right"><span id="dot_'+p.uid+'_offer_price" class="save-dot '+(saveStatus[p.uid+'_offer_price']||'')+'"></span></td>';
-    } else {
-      h += '<td>'+esc(p.offer||"\u2014")+'</td>';
-    }
+    // Offer field — editable for all rows
+    h += '<td onclick="event.stopPropagation()"><input type="text" value="'+esc(p.offerPrice||'')+'" placeholder="\u2014" oninput="changeOffer(\''+p.uid+'\',this.value)" style="width:70px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;font-weight:600;color:#047857;outline:none;font-family:inherit;text-align:right"><span id="dot_'+p.uid+'_offer_price" class="save-dot '+(saveStatus[p.uid+'_offer_price']||'')+'"></span></td>';
 
     // Comment cells (read-only for legacy)
     const commentFields = [
@@ -351,17 +343,11 @@ function render() {
       {key:"demandTeamComments", db:"demand_team_comments"}
     ];
     commentFields.forEach(cf => {
-      if (p.isLegacy) {
-        h += '<td onclick="event.stopPropagation()">';
-        h += '<textarea class="comment-input" placeholder="\u2014" oninput="changeLegacyComment(\''+p.uid+"','"+cf.key+'\',this.value)">'+esc(p[cf.key]||"")+'</textarea>';
-        h += '</td>';
-      } else {
-        const dotKey = p.uid + "_" + cf.db;
-        h += '<td onclick="event.stopPropagation()">';
-        h += '<textarea class="comment-input" placeholder="\u2014" oninput="changeComment(\''+p.uid+"','"+cf.db+"','"+cf.key+'\',this.value)">'+esc(p[cf.key]||"")+'</textarea>';
-        h += '<span id="dot_'+dotKey+'" class="save-dot '+(saveStatus[dotKey]||'')+'"></span>';
-        h += '</td>';
-      }
+      const dotKey = p.uid + "_" + cf.db;
+      h += '<td onclick="event.stopPropagation()">';
+      h += '<textarea class="comment-input" placeholder="\u2014" oninput="changeComment(\''+p.uid+"','"+cf.db+"','"+cf.key+'\',this.value)">'+esc(p[cf.key]||"")+'</textarea>';
+      h += '<span id="dot_'+dotKey+'" class="save-dot '+(saveStatus[dotKey]||'')+'"></span>';
+      h += '</td>';
     });
 
     h += '</tr>';
@@ -561,43 +547,6 @@ function changeComment(uid, dbField, jsField, value) {
   debouncedSave(uid, dbField, value);
 }
 
-// Legacy comments — saved to localStorage, no DB
-function changeLegacyComment(uid, jsField, value) {
-  const prop = DATA.find(p => p.uid === uid);
-  if (prop) prop[jsField] = value;
-  saveLegacyComments();
-}
-
-function saveLegacyComments() {
-  const store = {};
-  DATA.filter(p => p.isLegacy).forEach(p => {
-    const c = {};
-    if (p.closureTeamComments) c.closureTeamComments = p.closureTeamComments;
-    if (p.rahoolComments) c.rahoolComments = p.rahoolComments;
-    if (p.prashantComments) c.prashantComments = p.prashantComments;
-    if (p.demandTeamComments) c.demandTeamComments = p.demandTeamComments;
-    if (Object.keys(c).length > 0) store[p.uid] = c;
-  });
-  try { localStorage.setItem("oh_legacy_comments", JSON.stringify(store)); } catch {}
-}
-
-function loadLegacyComments() {
-  try {
-    const raw = localStorage.getItem("oh_legacy_comments");
-    if (!raw) return;
-    const store = JSON.parse(raw);
-    DATA.filter(p => p.isLegacy).forEach(p => {
-      const saved = store[p.uid];
-      if (saved) {
-        if (saved.closureTeamComments) p.closureTeamComments = saved.closureTeamComments;
-        if (saved.rahoolComments) p.rahoolComments = saved.rahoolComments;
-        if (saved.prashantComments) p.prashantComments = saved.prashantComments;
-        if (saved.demandTeamComments) p.demandTeamComments = saved.demandTeamComments;
-      }
-    });
-  } catch {}
-}
-
 function changeOffer(uid, value) {
   const prop = DATA.find(p => p.uid === uid);
   if (prop) prop.offerPrice = value;
@@ -724,7 +673,7 @@ async function init() {
     }
 
     await fetchProperties();
-    loadLegacyComments();
+
     render();
   } catch (err) {
     document.getElementById("app").innerHTML =
