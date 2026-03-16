@@ -6,14 +6,14 @@
 <title>Supply Closure Tracker - Openhouse</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; background:#fff; color:#111827; }
+body { font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; background:#fff; color:#111827; margin:0; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
 .loading { display:flex; align-items:center; justify-content:center; height:100vh; font-size:14px; color:#6b7280; }
-.header { background:#fff; border-bottom:2px solid #e5e7eb; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.header { background:#fff; border-bottom:2px solid #e5e7eb; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; flex-shrink:0; }
 .logo { width:32px; height:32px; border-radius:6px; background:#111827; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff; flex-shrink:0; }
 .tabs { display:flex; gap:6px; flex-wrap:wrap; }
 .tab { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:500; cursor:pointer; background:#f3f4f6; color:#374151; border:1px solid #d1d5db; transition:all 0.15s; user-select:none; }
 .tab.active { background:#111827; color:#fff; border-color:#111827; }
-.filters { padding:10px 20px; display:flex; gap:10px; align-items:center; border-bottom:1px solid #e5e7eb; background:#f9fafb; flex-wrap:wrap; }
+.filters { padding:10px 20px; display:flex; gap:10px; align-items:center; border-bottom:1px solid #e5e7eb; background:#f9fafb; flex-wrap:wrap; flex-shrink:0; }
 .filters input, .filters select { background:#fff; border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; font-size:12px; outline:none; color:#111827; }
 .filters input { width:220px; }
 table { width:100%; border-collapse:collapse; min-width:1600px; }
@@ -75,7 +75,7 @@ tr.datarow.expanded { background:#f8fafc; }
 </head>
 <body>
 
-<div id="app"><div class="loading">Loading dashboard...</div></div>
+<div id="app" style="display:flex;flex-direction:column;height:100vh"><div class="loading">Loading dashboard...</div></div>
 
 <script>
 const ALL_STATUSES = ["AMA Signed","Cancelled post token","Dead - Legal","Dead - Sold","Dead NI","Documents Awaited","Duplicacy","Email Confirmation","Followup","Future Prospect","Hold","Negotiation","Offer Accepted","Offer Made","OH Rejected","Price High","Scheduled","Seller Rejected","Token Transferred"];
@@ -144,6 +144,7 @@ async function refreshData() {
   if (btn) { btn.textContent = "Refreshing..."; btn.disabled = true; }
   try {
     await fetchProperties();
+    loadLegacyComments();
     render();
   } catch (err) {
     alert("Refresh failed: " + err.message);
@@ -271,7 +272,6 @@ function render() {
       h += '</button>';
     }
     h += '<button onclick="logout()">Logout</button>';
-    h += '<button id="refreshBtn" onclick="refreshData()" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid #d1d5db;background:#fff;color:#374151">&#8635; Refresh</button>';
     h += '</div>';
   }
   h += '</div></div>';
@@ -294,7 +294,7 @@ function render() {
   h += '</div>';
 
   // Table
-  h += '<div style="overflow-x:auto"><table><thead><tr>';
+  h += '<div style="flex:1;overflow:auto"><table><thead><tr>';
   ["Society","Location","Unit No.","Config","Ask (in Lakhs)","Area (in Sqft)","Floor","Source","Name","Status","Exit Facing","Balcony View","POC","Offer Price","Closure Team Comments","Rahool Comments","Prashant Comments","Demand Team Comments"].forEach((hdr,i) => {
     h += '<th'+(i>=14?' style="min-width:150px"':'')+'>'+hdr+'</th>';
   });
@@ -352,8 +352,9 @@ function render() {
     ];
     commentFields.forEach(cf => {
       if (p.isLegacy) {
-        const val = p[cf.key] || "";
-        h += '<td style="font-size:11px;color:#6b7280;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(val)+'">'+esc(val||"\u2014")+'</td>';
+        h += '<td onclick="event.stopPropagation()">';
+        h += '<textarea class="comment-input" placeholder="\u2014" oninput="changeLegacyComment(\''+p.uid+"','"+cf.key+'\',this.value)">'+esc(p[cf.key]||"")+'</textarea>';
+        h += '</td>';
       } else {
         const dotKey = p.uid + "_" + cf.db;
         h += '<td onclick="event.stopPropagation()">';
@@ -560,19 +561,47 @@ function changeComment(uid, dbField, jsField, value) {
   debouncedSave(uid, dbField, value);
 }
 
+// Legacy comments — saved to localStorage, no DB
+function changeLegacyComment(uid, jsField, value) {
+  const prop = DATA.find(p => p.uid === uid);
+  if (prop) prop[jsField] = value;
+  saveLegacyComments();
+}
+
+function saveLegacyComments() {
+  const store = {};
+  DATA.filter(p => p.isLegacy).forEach(p => {
+    const c = {};
+    if (p.closureTeamComments) c.closureTeamComments = p.closureTeamComments;
+    if (p.rahoolComments) c.rahoolComments = p.rahoolComments;
+    if (p.prashantComments) c.prashantComments = p.prashantComments;
+    if (p.demandTeamComments) c.demandTeamComments = p.demandTeamComments;
+    if (Object.keys(c).length > 0) store[p.uid] = c;
+  });
+  try { localStorage.setItem("oh_legacy_comments", JSON.stringify(store)); } catch {}
+}
+
+function loadLegacyComments() {
+  try {
+    const raw = localStorage.getItem("oh_legacy_comments");
+    if (!raw) return;
+    const store = JSON.parse(raw);
+    DATA.filter(p => p.isLegacy).forEach(p => {
+      const saved = store[p.uid];
+      if (saved) {
+        if (saved.closureTeamComments) p.closureTeamComments = saved.closureTeamComments;
+        if (saved.rahoolComments) p.rahoolComments = saved.rahoolComments;
+        if (saved.prashantComments) p.prashantComments = saved.prashantComments;
+        if (saved.demandTeamComments) p.demandTeamComments = saved.demandTeamComments;
+      }
+    });
+  } catch {}
+}
+
 function changeOffer(uid, value) {
   const prop = DATA.find(p => p.uid === uid);
   if (prop) prop.offerPrice = value;
   debouncedSave(uid, "offer_price", value);
-}
-
-async function refreshData() {
-  const btn = document.getElementById("refreshBtn");
-  if (btn) { btn.disabled = true; btn.textContent = "Refreshing..."; }
-  try {
-    await fetchProperties();
-    render();
-  } catch {}
 }
 
 // ── Auth ──
@@ -695,6 +724,7 @@ async function init() {
     }
 
     await fetchProperties();
+    loadLegacyComments();
     render();
   } catch (err) {
     document.getElementById("app").innerHTML =
