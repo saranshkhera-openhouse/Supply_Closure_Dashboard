@@ -78,7 +78,7 @@ tr.datarow.expanded { background:#f8fafc; }
 <div id="app"><div class="loading">Loading dashboard...</div></div>
 
 <script>
-const ALL_STATUSES = ["AMA Signed","Dead - Legal","Dead - Sold","Dead NI","Documents Awaited","Duplicacy","Email Confirmation","Followup","Future Prospect","Negotiation","Offer Accepted","Offer Made","OH Rejected","Price High","Scheduled","Token Transferred"];
+const ALL_STATUSES = ["AMA Signed","Cancelled post token","Dead - Legal","Dead - Sold","Dead NI","Documents Awaited","Duplicacy","Email Confirmation","Followup","Future Prospect","Hold","Negotiation","Offer Accepted","Offer Made","OH Rejected","Price High","Scheduled","Seller Rejected","Token Transferred"];
 
 const STATUS_COLORS = {
   "Negotiation":       {bg:"#065f46",text:"#fff"},
@@ -97,6 +97,9 @@ const STATUS_COLORS = {
   "Dead NI":           {bg:"#881337",text:"#fff"},
   "Dead - Legal":      {bg:"#7f1d1d",text:"#fff"},
   "Duplicacy":         {bg:"#9ca3af",text:"#fff"},
+  "Hold":              {bg:"#6b7280",text:"#fff"},
+  "Cancelled post token":{bg:"#b45309",text:"#fff"},
+  "Seller Rejected":   {bg:"#dc2626",text:"#fff"},
   "New":               {bg:"#d1d5db",text:"#374151"},
 };
 

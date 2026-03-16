@@ -85,6 +85,23 @@ function parseRooms(r) {
   return rooms;
 }
 
+const STATUS_MAP = {
+  "OH_Rejected": "OH Rejected",
+  "Oh Rejected": "OH Rejected",
+  "Duplicate_Entry": "Duplicacy",
+  "Dead": "Dead NI",
+  "Followup_ fixed brkrg": "Followup",
+  "High Price": "Price High",
+  "Oh_hold": "Hold",
+  "Token Done": "Token Transferred",
+  "Sold": "Dead - Sold",
+};
+
+function normalizeStatus(raw) {
+  const trimmed = (raw || "").trim();
+  return STATUS_MAP[trimmed] || trimmed;
+}
+
 function transformRow(r, index, defaultCity) {
   return {
     uid: "LEGACY-" + String(index + 1).padStart(4, "0"),
@@ -133,7 +150,8 @@ function transformRow(r, index, defaultCity) {
     exitCompassImage: r["Exit Compass Image"] || "",
     documentsAvailable: [],
     // Status from the sheet directly
-    statusOverride: r["Status"] || "",
+    statusOverride: normalizeStatus(r["Status"]),
+    offerPrice: r["Offer Price"] || "",
     closureTeamComments: r["Closure Team  Comments"] || r["Closure Team Comments"] || "",
     rahoolComments: r["Rahool Comments"] || "",
     prashantComments: r["Prashant Comments"] || "",
