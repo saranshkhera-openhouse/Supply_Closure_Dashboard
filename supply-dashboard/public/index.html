@@ -78,7 +78,7 @@ tr.datarow.expanded { background:#f8fafc; }
 <div id="app"><div class="loading">Loading dashboard...</div></div>
 
 <script>
-const ALL_STATUSES = ["Negotiation","Offer Made","Offer Accepted","Token Transferred","Documents Awaited","AMA Signed","Email Confirmation","Future Prospect","Followup","Scheduled","Price High","OH Rejected","Dead - Sold","Dead NI","Dead - Legal","Duplicacy"];
+const ALL_STATUSES = ["AMA Signed","Dead - Legal","Dead - Sold","Dead NI","Documents Awaited","Duplicacy","Email Confirmation","Followup","Future Prospect","Negotiation","Offer Accepted","Offer Made","OH Rejected","Price High","Scheduled","Token Transferred"];
 
 const STATUS_COLORS = {
   "Negotiation":       {bg:"#065f46",text:"#fff"},
@@ -244,7 +244,7 @@ function render() {
   const counts = getCounts();
   const cities = ["All", ...new Set(DATA.map(p => p.city))];
   const pocs = ["All", ...new Set(DATA.map(p => p.assignedBy).filter(Boolean))];
-  const tabStatuses = ["Followup","Negotiation","Offer Made","Documents Awaited","Token Transferred","AMA Signed","Scheduled"];
+  const tabStatuses = ["Scheduled","Followup","Negotiation","Offer Made","Token Transferred","Documents Awaited","AMA Signed"];
 
   let h = "";
 

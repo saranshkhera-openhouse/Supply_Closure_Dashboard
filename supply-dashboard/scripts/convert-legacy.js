@@ -67,6 +67,24 @@ function splitCSVLine(line) {
   return result;
 }
 
+function parseRooms(r) {
+  const rooms = [];
+  for (let i = 1; i <= 5; i++) {
+    const name = r["Room" + i + " Name"];
+    const viewImage = r["Room" + i + " View Image"];
+    if (!name && !viewImage) continue;
+    rooms.push({
+      index: i,
+      attached_to: name || "",
+      facing: r["Room" + i + " Facing"] || "",
+      view: r["Room" + i + " View"] || "",
+      view_image: viewImage || "",
+      compass_image: r["Room" + i + " Compass Image"] || "",
+    });
+  }
+  return rooms;
+}
+
 function transformRow(r, index, defaultCity) {
   return {
     uid: "LEGACY-" + String(index + 1).padStart(4, "0"),
@@ -111,8 +129,8 @@ function transformRow(r, index, defaultCity) {
     tokenAmountRequested: "",
     dealTokenAmount: "",
     remainingAmount: "",
-    balconyDetails: [],
-    exitCompassImage: "",
+    balconyDetails: parseRooms(r),
+    exitCompassImage: r["Exit Compass Image"] || "",
     documentsAvailable: [],
     // Status from the sheet directly
     statusOverride: r["Status"] || "",
