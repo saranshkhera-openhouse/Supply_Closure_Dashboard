@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
         token_amount_requested, deal_token_amount, remaining_amount,
         balcony_details, image_urls, additional_images,
         exit_compass_image, documents_available,
-        status_override, closure_team_comments, rahool_comments,
+        status_override, offer_price, closure_team_comments, rahool_comments,
         prashant_comments, demand_team_comments
       FROM properties
       ORDER BY created_at DESC
@@ -183,6 +183,7 @@ function transformRow(r) {
     exitCompassImage: r.exit_compass_image || "",
     documentsAvailable: parseJson(r.documents_available),
     statusOverride: r.status_override || "",
+    offerPrice: r.offer_price || "",
     closureTeamComments: r.closure_team_comments || "",
     rahoolComments: r.rahool_comments || "",
     prashantComments: r.prashant_comments || "",

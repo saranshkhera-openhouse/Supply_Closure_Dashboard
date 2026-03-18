@@ -319,7 +319,7 @@ function _render() {
   pocs.filter(p=>p!=="All").forEach(p => { h += '<option value="'+esc(p)+'"'+(state.pocFilter===p?' selected':'')+'>'+esc(p)+'</option>'; });
   h += '</select>';
   h += '<span style="font-size:11px;color:#6b7280;margin-left:auto">'+filtered.length+' results</span>';
-  h += '<span id="lastUpdated" style="font-size:10px;color:#9ca3af">'+(lastRefreshed ? 'Updated '+lastRefreshed : '')+'</span>';
+  h += '<span id="lastUpdated" style="font-size:10px;color:#9ca3af">'+(lastRefreshed ? 'Updated '+lastRefreshed+' \u00B7 Auto-sync on' : '')+'</span>';
   h += '<button onclick="refreshData()" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid #d1d5db;background:#fff;color:#374151">&#x21bb; Refresh</button>';
   h += '</div>';
 
@@ -728,10 +728,53 @@ async function init() {
     await fetchProperties();
 
     render();
+
+    // Start auto-polling every 10 seconds
+    startAutoRefresh();
   } catch (err) {
     document.getElementById("app").innerHTML =
       '<div class="loading" style="color:#ef4444">Failed to load data. Check your API connection.<br><br><small>'+esc(err.message)+'</small></div>';
   }
+}
+
+// ── Auto Refresh (silent background polling) ──
+let autoRefreshInterval = null;
+
+function startAutoRefresh() {
+  if (autoRefreshInterval) return;
+  autoRefreshInterval = setInterval(silentRefresh, 10000); // every 10 seconds
+}
+
+async function silentRefresh() {
+  // Don't refresh if user is actively typing in an input/textarea
+  const active = document.activeElement;
+  const isEditing = active && (active.tagName === "TEXTAREA" || (active.tagName === "INPUT" && active.type === "text"));
+  if (isEditing) return;
+
+  // Don't refresh if admin panel is open
+  if (showAdminPanel) return;
+
+  try {
+    const res = await fetch("/api/properties");
+    if (!res.ok) return; // fail silently
+    const newData = await res.json();
+    newData.forEach(p => {
+      p.balconyDetails = ensureArray(p.balconyDetails);
+      p.documentsAvailable = ensureArray(p.documentsAvailable);
+      p.furnishingDetails = ensureArray(p.furnishingDetails);
+    });
+
+    // Only update if data actually changed
+    const oldJson = JSON.stringify(DATA.map(d => d.uid + (d.statusOverride||"") + (d.offerPrice||"") + (d.closureTeamComments||"") + (d.rahoolComments||"") + (d.prashantComments||"") + (d.demandTeamComments||"")));
+    const newJson = JSON.stringify(newData.map(d => d.uid + (d.statusOverride||"") + (d.offerPrice||"") + (d.closureTeamComments||"") + (d.rahoolComments||"") + (d.prashantComments||"") + (d.demandTeamComments||"")));
+
+    if (oldJson !== newJson) {
+      DATA = newData;
+      const now = new Date();
+      lastRefreshed = now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit" });
+      render();
+    }
+  } catch {}
 }
 
 init();
