@@ -30,7 +30,9 @@ module.exports = async function handler(req, res) {
         balcony_details, image_urls, additional_images,
         exit_compass_image, documents_available,
         status_override, offer_price, closure_team_comments, rahool_comments,
-        prashant_comments, demand_team_comments
+        prashant_comments, demand_team_comments,
+        closure_team_comments_at, rahool_comments_at,
+        prashant_comments_at, demand_team_comments_at
       FROM properties
       ORDER BY created_at DESC
     `;
@@ -40,11 +42,11 @@ module.exports = async function handler(req, res) {
     // Step 2: Load legacy edits from DB and apply to CSV data
     let legacyWithEdits = legacyData.map(r => ({...r})); // shallow copy
     try {
-      const edits = await sql`SELECT uid, field, value FROM legacy_edits`;
-      const editMap = {}; // uid -> { field: value }
+      const edits = await sql`SELECT uid, field, value, updated_at FROM legacy_edits`;
+      const editMap = {}; // uid -> { field: {value, updated_at} }
       edits.forEach(e => {
         if (!editMap[e.uid]) editMap[e.uid] = {};
-        editMap[e.uid][e.field] = e.value;
+        editMap[e.uid][e.field] = { value: e.value, updated_at: e.updated_at };
       });
       const FIELD_TO_KEY = {
         "status_override": "statusOverride",
@@ -54,12 +56,20 @@ module.exports = async function handler(req, res) {
         "prashant_comments": "prashantComments",
         "demand_team_comments": "demandTeamComments",
       };
+      const COMMENT_TS_MAP = {
+        "closure_team_comments": "closureTeamCommentsAt",
+        "rahool_comments": "rahoolCommentsAt",
+        "prashant_comments": "prashantCommentsAt",
+        "demand_team_comments": "demandTeamCommentsAt",
+      };
       legacyWithEdits.forEach(p => {
         const saved = editMap[p.uid];
         if (!saved) return;
-        Object.entries(saved).forEach(([dbField, val]) => {
+        Object.entries(saved).forEach(([dbField, obj]) => {
           const jsKey = FIELD_TO_KEY[dbField];
-          if (jsKey) p[jsKey] = val;
+          if (jsKey) p[jsKey] = obj.value;
+          const tsKey = COMMENT_TS_MAP[dbField];
+          if (tsKey && obj.updated_at) p[tsKey] = obj.updated_at;
         });
       });
     } catch {}
@@ -188,5 +198,9 @@ function transformRow(r) {
     rahoolComments: r.rahool_comments || "",
     prashantComments: r.prashant_comments || "",
     demandTeamComments: r.demand_team_comments || "",
+    closureTeamCommentsAt: r.closure_team_comments_at || "",
+    rahoolCommentsAt: r.rahool_comments_at || "",
+    prashantCommentsAt: r.prashant_comments_at || "",
+    demandTeamCommentsAt: r.demand_team_comments_at || "",
   };
 }

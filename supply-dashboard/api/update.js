@@ -44,10 +44,25 @@ module.exports = async function handler(req, res) {
 
     const sql = getDB();
 
-    // Use parameterized query for safety
-    // We need dynamic column name but the value is parameterized
-    const query = `UPDATE properties SET ${field} = $1 WHERE uid = $2 RETURNING uid`;
-    const result = await sql(query, [value || "", uid]);
+    // Comment fields also update their timestamp column
+    const COMMENT_TS = {
+      "closure_team_comments": "closure_team_comments_at",
+      "rahool_comments": "rahool_comments_at",
+      "prashant_comments": "prashant_comments_at",
+      "demand_team_comments": "demand_team_comments_at",
+    };
+
+    const tsCol = COMMENT_TS[field];
+    let query;
+    let params;
+    if (tsCol) {
+      query = `UPDATE properties SET ${field} = $1, ${tsCol} = NOW() WHERE uid = $2 RETURNING uid`;
+      params = [value || "", uid];
+    } else {
+      query = `UPDATE properties SET ${field} = $1 WHERE uid = $2 RETURNING uid`;
+      params = [value || "", uid];
+    }
+    const result = await sql(query, params);
 
     if (result.length === 0) {
       return res.status(404).json({ error: "Property not found" });
