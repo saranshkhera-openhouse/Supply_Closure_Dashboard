@@ -34,6 +34,7 @@ module.exports = async function handler(req, res) {
         closure_team_comments_at, rahool_comments_at,
         prashant_comments_at, demand_team_comments_at
       FROM properties
+      WHERE (is_dead IS NULL OR is_dead = false)
       ORDER BY created_at DESC
     `;
 
