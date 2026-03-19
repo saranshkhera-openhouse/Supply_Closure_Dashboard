@@ -759,22 +759,19 @@ async function logout() {
 }
 
 // ── Admin ──
-function openAdmin() {
+async function openAdmin() {
   showAdminPanel = true;
   adminTab = "users";
-  render(); // show immediately with cached data
-  // Load fresh data in background
-  Promise.all([loadUsers(), loadRequests(), loadTeam(), loadBugs()]).then(() => render());
+  await Promise.all([loadUsers(), loadRequests(), loadTeam(), loadBugs()]);
+  render();
 }
 
 function closeAdmin() { showAdminPanel = false; render(); }
 
 function switchAdminTab(tab) {
   adminTab = tab;
-  render(); // show immediately
   if (tab === "bugs") loadBugs().then(() => render());
-  else if (tab === "team") loadTeam().then(() => render());
-  else if (tab === "users") Promise.all([loadUsers(), loadRequests()]).then(() => render());
+  else render();
 }
 
 async function loadUsers() {
@@ -952,12 +949,10 @@ async function init() {
     const authData = await authRes.json();
     currentUser = authData.user;
 
-    // If admin, preload all admin panel data in background
+    // If admin, load pending requests count for badge
     if (currentUser.role === "admin") {
       loadRequests();
       loadBugs();
-      loadUsers();
-      loadTeam();
     }
 
     await fetchProperties();
