@@ -384,7 +384,7 @@ function _render() {
   h += '</div>';
 
   // Table
-  h += '<div style="flex:1;overflow:auto"><table><thead><tr>';
+  h += '<div id="tableWrap" style="flex:1;overflow:auto"><table><thead><tr>';
   ["Society","Location","Unit No.","Config","Ask (in Lakhs)","Area (in Sqft)","Floor","Source","Name","Status","Exit Facing","Balcony View","POC","Offer Price","Closure Team Comments","Rahool Comments","Prashant Comments","Demand Team Comments"].forEach((hdr,i) => {
     h += '<th'+(i>=14?' style="min-width:150px"':'')+'>'+hdr+'</th>';
   });
@@ -535,7 +535,12 @@ function _render() {
 
   h += '</div>';
 
+  var tw = document.getElementById("tableWrap");
+  var scrollTop = tw ? tw.scrollTop : 0;
+  var scrollLeft = tw ? tw.scrollLeft : 0;
   document.getElementById("app").innerHTML = h;
+  tw = document.getElementById("tableWrap");
+  if (tw) { tw.scrollTop = scrollTop; tw.scrollLeft = scrollLeft; }
   renderOverlays();
 }
 
@@ -747,7 +752,7 @@ function updateFilter(key, v) {
   try { render(); } catch(e) { console.error("Render error on filter:", e); }
 }
 
-function goPage(n) { state.page = n; render(); window.scrollTo(0,0); }
+function goPage(n) { state.page = n; render(); var tw = document.getElementById("tableWrap"); if (tw) tw.scrollTop = 0; }
 function toggleExpand(uid) {
   state.expandedId = state.expandedId === uid ? null : uid;
   try { render(); } catch(e) { console.error("Render crash:", e); alert("Render error: " + e.message); }
