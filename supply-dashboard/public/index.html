@@ -370,7 +370,7 @@ function _render() {
   pocs.filter(p=>p!=="All").forEach(p => { h += '<option value="'+esc(p)+'"'+(state.pocFilter===p?' selected':'')+'>'+esc(p)+'</option>'; });
   h += '</select>';
   h += '<span style="font-size:11px;color:#6b7280;margin-left:auto">'+filtered.length+' results</span>';
-  h += '<span id="lastUpdated" style="font-size:10px;color:#9ca3af">'+(lastRefreshed ? 'Updated '+lastRefreshed+' \u00B7 Auto-sync on' : '')+'</span>';
+  h += '<span id="lastUpdated" style="font-size:10px;color:#9ca3af">'+(lastRefreshed ? 'Updated '+lastRefreshed+' \u00B7 Auto-sync 30s' : '')+'</span>';
   h += '<button onclick="refreshData()" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid #d1d5db;background:#fff;color:#374151">&#x21bb; Refresh</button>';
   h += '</div>';
 
@@ -956,10 +956,11 @@ async function init() {
     }
 
     await fetchProperties();
+    lastDataHash = quickHash(DATA);
 
     render();
 
-    // Start auto-polling every 10 seconds
+    // Start auto-polling every 30 seconds
     startAutoRefresh();
   } catch (err) {
     document.getElementById("app").innerHTML =
@@ -972,21 +973,46 @@ let autoRefreshInterval = null;
 
 function startAutoRefresh() {
   if (autoRefreshInterval) return;
-  autoRefreshInterval = setInterval(silentRefresh, 10000); // every 10 seconds
+  autoRefreshInterval = setInterval(silentRefresh, 30000); // every 30 seconds
+
+  // Pause when tab is hidden, resume when visible
+  document.addEventListener("visibilitychange", function() {
+    if (document.hidden) {
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = null;
+    } else {
+      silentRefresh(); // immediate refresh on tab return
+      startAutoRefresh();
+    }
+  });
+}
+
+let lastDataHash = "";
+function quickHash(data) {
+  // Lightweight: just check count + last few editable fields
+  let h = data.length + "|";
+  const sample = data.slice(0, 50); // only check first 50 rows
+  for (let i = 0; i < sample.length; i++) {
+    const d = sample[i];
+    h += (d.statusOverride||"") + (d.offerPrice||"") + (d.closureTeamComments||"").length + (d.rahoolComments||"").length + (d.prashantComments||"").length + (d.demandTeamComments||"").length + "|";
+  }
+  return h;
 }
 
 async function silentRefresh() {
-  // Don't refresh if user is actively typing in an input/textarea
+  // Don't refresh if user is actively typing
   const active = document.activeElement;
-  const isEditing = active && (active.tagName === "TEXTAREA" || (active.tagName === "INPUT" && active.type === "text"));
-  if (isEditing) return;
+  if (active && (active.tagName === "TEXTAREA" || (active.tagName === "INPUT" && active.type === "text"))) return;
 
-  // Don't refresh if admin panel is open
-  if (showAdminPanel) return;
+  // Don't refresh if admin panel or bug form is open
+  if (showAdminPanel || showBugForm) return;
+
+  // Don't refresh if tab is hidden
+  if (document.hidden) return;
 
   try {
     const res = await fetch("/api/properties");
-    if (!res.ok) return; // fail silently
+    if (!res.ok) return;
     const newData = await res.json();
     newData.forEach(p => {
       p.balconyDetails = ensureArray(p.balconyDetails);
@@ -994,11 +1020,9 @@ async function silentRefresh() {
       p.furnishingDetails = ensureArray(p.furnishingDetails);
     });
 
-    // Only update if data actually changed
-    const oldJson = JSON.stringify(DATA.map(d => d.uid + (d.statusOverride||"") + (d.offerPrice||"") + (d.closureTeamComments||"") + (d.rahoolComments||"") + (d.prashantComments||"") + (d.demandTeamComments||"")));
-    const newJson = JSON.stringify(newData.map(d => d.uid + (d.statusOverride||"") + (d.offerPrice||"") + (d.closureTeamComments||"") + (d.rahoolComments||"") + (d.prashantComments||"") + (d.demandTeamComments||"")));
-
-    if (oldJson !== newJson) {
+    const newHash = quickHash(newData);
+    if (newHash !== lastDataHash) {
+      lastDataHash = newHash;
       DATA = newData;
       const now = new Date();
       lastRefreshed = now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit" });
