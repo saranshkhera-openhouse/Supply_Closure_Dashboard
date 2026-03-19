@@ -36,7 +36,7 @@ tr.datarow.expanded { background:#f8fafc; }
 .unit-cell { font-family:monospace; font-weight:500; }
 .ask-cell { font-weight:600; color:#b45309; }
 .small-cell { font-size:11px; }
-.balcony-cell { max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.balcony-cell { max-width:200px; white-space:normal; word-wrap:break-word; font-size:11px; line-height:1.3; }
 .save-dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-left:4px; }
 .save-dot.saving { background:#f59e0b; }
 .save-dot.saved { background:#22c55e; }
@@ -152,6 +152,7 @@ let state = {
   cityFilter: "All",
   statusFilter: "All",
   pocFilter: "All",
+  sourceFilter: "All",
   expandedId: null,
   modalImg: null,
   page: 1
@@ -299,9 +300,14 @@ function getFiltered() {
     if (state.cityFilter !== "All" && p.city !== state.cityFilter) return false;
     if (state.statusFilter !== "All" && getStatus(p) !== state.statusFilter) return false;
     if (state.pocFilter !== "All" && p.assignedBy !== state.pocFilter) return false;
+    if (state.sourceFilter !== "All") {
+      const src = (p.source || "").toLowerCase();
+      if (state.sourceFilter === "CP" && src !== "cp") return false;
+      if (state.sourceFilter === "Direct" && src === "cp") return false;
+    }
     if (state.search) {
       const s = state.search.toLowerCase();
-      return [p.uid,p.society,p.ownerName,p.unitNo,p.fieldExec,p.locality].some(v => (v||"").toLowerCase().includes(s));
+      return [p.uid,p.society,p.ownerName,p.unitNo,p.fieldExec,p.locality,p.contactNo].some(v => (v||"").toLowerCase().includes(s));
     }
     return true;
   });
@@ -364,14 +370,15 @@ function _render() {
   h += '<div class="filters">';
   h += '<input id="searchBox" value="'+esc(state.search)+'" placeholder="Search society, owner, UID..." oninput="updateSearch(this.value)">';
   h += '<select onchange="updateFilter(\'cityFilter\',this.value)"><option value="All">All Cities</option>';
-  cities.filter(c=>c!=="All").forEach(c => { h += '<option value="'+esc(c)+'"'+(state.cityFilter===c?' selected':'')+'>'+esc(c)+'</option>'; });
+  cities.filter(c=>c!=="All").sort().forEach(c => { h += '<option value="'+esc(c)+'"'+(state.cityFilter===c?' selected':'')+'>'+esc(c)+'</option>'; });
   h += '</select>';
   h += '<select onchange="updateFilter(\'statusFilter\',this.value)"><option value="All">All Status</option>';
   ALL_STATUSES.forEach(s => { h += '<option value="'+esc(s)+'"'+(state.statusFilter===s?' selected':'')+'>'+esc(s)+'</option>'; });
   h += '</select>';
   h += '<select onchange="updateFilter(\'pocFilter\',this.value)"><option value="All">All POC</option>';
-  pocs.filter(p=>p!=="All").forEach(p => { h += '<option value="'+esc(p)+'"'+(state.pocFilter===p?' selected':'')+'>'+esc(p)+'</option>'; });
+  pocs.filter(p=>p!=="All").sort((a,b) => a.localeCompare(b)).forEach(p => { h += '<option value="'+esc(p)+'"'+(state.pocFilter===p?' selected':'')+'>'+esc(p)+'</option>'; });
   h += '</select>';
+  h += '<select onchange="updateFilter(\'sourceFilter\',this.value)"><option value="All">All Sources</option><option value="CP"'+(state.sourceFilter==="CP"?' selected':'')+'>CP</option><option value="Direct"'+(state.sourceFilter==="Direct"?' selected':'')+'>Direct</option></select>';
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   if (state.page > totalPages && totalPages > 0) state.page = totalPages;
   const pageStart = (state.page - 1) * PAGE_SIZE;
@@ -385,8 +392,8 @@ function _render() {
 
   // Table
   h += '<div id="tableWrap" style="flex:1;overflow:auto"><table><thead><tr>';
-  ["Society","Location","Unit No.","Config","Ask (in Lakhs)","Area (in Sqft)","Floor","Source","Name","Status","Exit Facing","Balcony View","POC","Offer Price","Closure Team Comments","Rahool Comments","Prashant Comments","Demand Team Comments"].forEach((hdr,i) => {
-    h += '<th'+(i>=14?' style="min-width:150px"':'')+'>'+hdr+'</th>';
+  ["Society","Location","Unit No.","Config","Ask (in Lakhs)","Area (in Sqft)","Floor","Source","Name","Phone","Status","Exit Facing","Balcony View","POC","Offer Price","Closure Team Comments","Rahool Comments","Prashant Comments","Demand Team Comments"].forEach((hdr,i) => {
+    h += '<th'+(i>=15?' style="min-width:150px"':'')+'>'+hdr+'</th>';
   });
   h += '</tr></thead><tbody>';
 
@@ -409,6 +416,7 @@ function _render() {
     h += '<td style="text-align:center">'+(p.floor||"\u2014")+'</td>';
     h += '<td>'+esc(p.source)+'</td>';
     h += '<td>'+esc(p.ownerName)+'</td>';
+    h += '<td style="font-size:11px;white-space:nowrap">'+(p.contactNo||"\u2014")+'</td>';
 
     // Status dropdown — editable for all rows
     h += '<td onclick="event.stopPropagation()">';
@@ -449,7 +457,7 @@ function _render() {
     // Expanded row
     if (isExp) {
       try {
-      h += '<tr class="expand-row"><td colspan="18"><div class="expand-content">';
+      h += '<tr class="expand-row"><td colspan="19"><div class="expand-content">';
       h += '<div class="detail-tags">';
       const rate = getRatePerSqft(p);
       if (rate) h += '<span>Rate/sqft: <b>\u20B9'+rate+'</b></span>';
@@ -493,7 +501,7 @@ function _render() {
 
       h += '</div></td></tr>';
       } catch(expandErr) {
-        h += '<tr class="expand-row"><td colspan="18" style="padding:12px 20px;color:#ef4444;font-size:12px">Error loading details: '+esc(expandErr.message)+'</td></tr>';
+        h += '<tr class="expand-row"><td colspan="19" style="padding:12px 20px;color:#ef4444;font-size:12px">Error loading details: '+esc(expandErr.message)+'</td></tr>';
         console.error("Expand error for "+p.uid+":", expandErr);
       }
     }
@@ -701,29 +709,18 @@ function renderOverlays() {
   // Bug Report Form Modal
   if (showBugForm) {
     h += '<div class="bug-overlay" onclick="if(event.target===this)closeBugForm()">';
-    h += '<div class="bug-modal">';
+    h += '<div class="bug-modal" style="width:420px">';
     h += '<div class="bug-header"><h2>&#128027; Report a Bug</h2><button class="admin-close" onclick="closeBugForm()">&times;</button></div>';
     h += '<div class="bug-body">';
     if (bugSubmitted) {
-      h += '<div class="bug-success">&#9989; Bug reported successfully!<br><span style="font-size:12px;color:#6b7280">The admin will review it shortly.</span></div>';
-      h += '<div style="text-align:center;margin-top:12px"><button onclick="closeBugForm()" style="padding:8px 20px;background:#111827;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer">Close</button></div>';
+      h += '<div class="bug-success" style="padding:40px 20px">&#9989; Bug reported!<br><br><span style="font-size:14px;color:#111827;font-weight:600">Your issue will be resolved in the next 48 hrs.</span><br><span style="font-size:12px;color:#6b7280;margin-top:8px;display:block">We\'ll notify you once it\'s fixed.</span></div>';
+      h += '<div style="text-align:center;margin-top:16px;padding-bottom:8px"><button onclick="closeBugForm()" style="padding:8px 24px;background:#111827;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer">Done</button></div>';
     } else {
-      h += '<div class="bug-field"><label>What went wrong? *</label>';
-      h += '<input id="bugTitle" placeholder="e.g. Status dropdown not saving on Noida properties"></div>';
-      h += '<div class="bug-field"><label>Describe in detail</label>';
-      h += '<textarea id="bugDesc" placeholder="What were you doing? What did you expect to happen? What happened instead?"></textarea></div>';
-      h += '<div class="bug-field"><label>Steps to reproduce</label>';
-      h += '<textarea id="bugSteps" placeholder="1. Go to...\n2. Click on...\n3. See error..." style="min-height:60px"></textarea></div>';
-      h += '<div style="display:flex;gap:10px;margin-bottom:14px">';
-      h += '<div class="bug-field" style="flex:1;margin-bottom:0"><label>Severity</label>';
-      h += '<select id="bugSeverity"><option value="low">Low - cosmetic / minor</option><option value="medium" selected>Medium - broken but workaround exists</option><option value="high">High - key feature broken</option><option value="critical">Critical - dashboard unusable</option></select></div>';
-      h += '<div class="bug-field" style="flex:1;margin-bottom:0"><label>Page / Section</label>';
-      h += '<select id="bugPage"><option value="Dashboard - Main Table">Main Table</option><option value="Dashboard - Expanded Row">Expanded Row / Images</option><option value="Dashboard - Filters">Filters / Search / Tabs</option><option value="Dashboard - Status">Status Dropdown</option><option value="Dashboard - Comments">Comments</option><option value="Dashboard - Login">Login / Auth</option><option value="Dashboard - Admin Panel">Admin Panel</option><option value="Other">Other</option></select></div>';
-      h += '</div>';
-      h += '<div class="bug-field"><label>Screenshot URL (optional)</label>';
-      h += '<input id="bugScreenshot" placeholder="Paste a link to screenshot (Google Drive, Imgur etc.)"></div>';
-      h += '<div style="font-size:10px;color:#9ca3af;margin-bottom:12px">Auto-captured: your email, browser info, screen size, timestamp</div>';
-      h += '<button class="bug-submit" id="bugSubmitBtn" onclick="submitBugReport()">Submit Bug Report</button>';
+      h += '<div class="bug-field"><label>Describe your issue *</label>';
+      h += '<textarea id="bugTitle" placeholder="What went wrong? Be as specific as possible..." style="min-height:100px"></textarea></div>';
+      h += '<div class="bug-field"><label>Attach screenshot (paste link)</label>';
+      h += '<input id="bugScreenshot" placeholder="Google Drive / Imgur link"></div>';
+      h += '<button class="bug-submit" id="bugSubmitBtn" onclick="submitBugReport()">Submit</button>';
     }
     h += '</div></div></div>';
   }
@@ -904,10 +901,10 @@ async function submitBugReport() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: title,
-        description: (document.getElementById("bugDesc").value || "").trim(),
-        steps_to_reproduce: (document.getElementById("bugSteps").value || "").trim(),
-        severity: document.getElementById("bugSeverity").value,
-        page: document.getElementById("bugPage").value,
+        description: "",
+        steps_to_reproduce: "",
+        severity: "medium",
+        page: window.location.pathname,
         screenshot_url: (document.getElementById("bugScreenshot").value || "").trim(),
         browser_info: navigator.userAgent.replace(/.*?(Chrome|Firefox|Safari|Edge)\/(\S+).*/, "$1 $2"),
         screen_size: window.innerWidth + "x" + window.innerHeight,
@@ -920,11 +917,11 @@ async function submitBugReport() {
     } else {
       const err = await res.json().catch(() => ({}));
       alert("Failed: " + (err.error || "Unknown error"));
-      if (btn) { btn.disabled = false; btn.textContent = "Submit Bug Report"; }
+      if (btn) { btn.disabled = false; btn.textContent = "Submit"; }
     }
   } catch(e) {
     alert("Failed to submit: " + e.message);
-    if (btn) { btn.disabled = false; btn.textContent = "Submit Bug Report"; }
+    if (btn) { btn.disabled = false; btn.textContent = "Submit"; }
   }
 }
 

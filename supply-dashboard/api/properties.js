@@ -78,18 +78,45 @@ module.exports = async function handler(req, res) {
     // Step 3: Merge live + legacy
     const allProperties = [...liveProperties, ...legacyWithEdits];
 
-    // Step 3: Apply visibility filtering
-    if (user.role === "admin") {
-      return res.status(200).json(allProperties);
-    }
-
-    // Non-admins: filter by team directory
+    // Step 4: Load team directory for name normalization + visibility
     let teamRows = [];
     try {
       teamRows = await sql`SELECT email, display_name, manager_email FROM team_directory WHERE is_active = true`;
     } catch (teamErr) {
       console.error("team_directory query failed:", teamErr.message);
-      // If table doesn't exist, return all data (no filtering)
+    }
+
+    // Step 5: Normalize names (first-name-only → full name from team_directory)
+    if (teamRows.length > 0) {
+      const nameMap = {}; // lowercase first name → full display_name
+      teamRows.forEach(t => {
+        const full = (t.display_name || "").trim();
+        const first = full.split(" ")[0].toLowerCase();
+        if (first && full.includes(" ")) {
+          nameMap[first] = full;
+        }
+      });
+      allProperties.forEach(p => {
+        // Normalize assignedBy (POC)
+        if (p.assignedBy) {
+          const lower = p.assignedBy.trim().toLowerCase();
+          if (nameMap[lower]) p.assignedBy = nameMap[lower];
+        }
+        // Normalize fieldExec
+        if (p.fieldExec) {
+          const lower = p.fieldExec.trim().toLowerCase();
+          if (nameMap[lower]) p.fieldExec = nameMap[lower];
+        }
+      });
+    }
+
+    // Step 6: Apply visibility filtering
+    if (user.role === "admin") {
+      return res.status(200).json(allProperties);
+    }
+
+    // Non-admins: filter by team directory
+    if (teamRows.length === 0) {
       return res.status(200).json(allProperties);
     }
 

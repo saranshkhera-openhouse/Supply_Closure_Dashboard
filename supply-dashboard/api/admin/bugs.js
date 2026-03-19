@@ -23,6 +23,27 @@ module.exports = async function handler(req, res) {
         RETURNING id
       `;
 
+      // Send email notification (fire and forget)
+      const webhookUrl = process.env.BUG_NOTIFY_WEBHOOK;
+      if (webhookUrl) {
+        try {
+          fetch(webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: "saransh.khera@openhouse.in",
+              subject: "[Bug #" + result[0].id + "] " + title.trim(),
+              reported_by: user.email,
+              title: title.trim(),
+              screenshot: screenshot_url || "None",
+              browser: browser_info || "",
+              screen: screen_size || "",
+              timestamp: new Date().toISOString(),
+            })
+          }).catch(() => {});
+        } catch {}
+      }
+
       return res.status(200).json({ success: true, id: result[0].id });
     } catch (err) {
       console.error("Bug report submit error:", err);
