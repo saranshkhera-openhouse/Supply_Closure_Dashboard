@@ -107,6 +107,7 @@ tr.datarow.expanded { background:#f8fafc; }
 <body>
 
 <div id="app" style="display:flex;flex-direction:column;height:100vh"><div class="loading">Loading dashboard...</div></div>
+<div id="overlays"></div>
 
 <script>
 const ALL_STATUSES = ["AMA Signed","Cancelled post token","Dead - Legal","Dead - Sold","Dead NI","Documents Awaited","Duplicacy","Email Confirmation","Followup","Future Prospect","Hold","Negotiation","Offer Accepted","Offer Made","OH Rejected","Price High","Scheduled","Seller Rejected","Token Transferred"];
@@ -152,8 +153,10 @@ let state = {
   statusFilter: "All",
   pocFilter: "All",
   expandedId: null,
-  modalImg: null
+  modalImg: null,
+  page: 1
 };
+const PAGE_SIZE = 50;
 
 // Debounce timers for auto-saving comments
 const saveTimers = {};
@@ -369,7 +372,13 @@ function _render() {
   h += '<select onchange="updateFilter(\'pocFilter\',this.value)"><option value="All">All POC</option>';
   pocs.filter(p=>p!=="All").forEach(p => { h += '<option value="'+esc(p)+'"'+(state.pocFilter===p?' selected':'')+'>'+esc(p)+'</option>'; });
   h += '</select>';
-  h += '<span style="font-size:11px;color:#6b7280;margin-left:auto">'+filtered.length+' results</span>';
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  if (state.page > totalPages && totalPages > 0) state.page = totalPages;
+  const pageStart = (state.page - 1) * PAGE_SIZE;
+  const pageEnd = pageStart + PAGE_SIZE;
+  const pageRows = filtered.slice(pageStart, pageEnd);
+
+  h += '<span style="font-size:11px;color:#6b7280;margin-left:auto">'+filtered.length+' results &middot; Page '+state.page+'/'+Math.max(totalPages,1)+'</span>';
   h += '<span id="lastUpdated" style="font-size:10px;color:#9ca3af">'+(lastRefreshed ? 'Updated '+lastRefreshed+' \u00B7 Auto-sync 30s' : '')+'</span>';
   h += '<button onclick="refreshData()" style="padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid #d1d5db;background:#fff;color:#374151">&#x21bb; Refresh</button>';
   h += '</div>';
@@ -381,7 +390,7 @@ function _render() {
   });
   h += '</tr></thead><tbody>';
 
-  filtered.forEach(p => {
+  pageRows.forEach(p => {
     // Ensure arrays are parsed (safety net for Neon JSON strings)
     p.balconyDetails = ensureArray(p.balconyDetails);
     p.documentsAvailable = ensureArray(p.documentsAvailable);
@@ -498,7 +507,40 @@ function _render() {
       h += '<div style="text-align:center;padding:40px 20px;color:#9ca3af;font-size:13px">No properties match the current filters</div>';
     }
   }
+
+  // Pagination controls
+  if (totalPages > 1) {
+    h += '<div style="display:flex;align-items:center;justify-content:center;gap:4px;padding:10px 20px;border-top:1px solid #e5e7eb;background:#f9fafb;flex-shrink:0">';
+    h += '<button onclick="goPage(1)" style="padding:4px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;color:#374151"'+(state.page===1?' disabled style="padding:4px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:4px;background:#f9fafb;cursor:default;color:#9ca3af"':'')+'>First</button>';
+    h += '<button onclick="goPage('+Math.max(1,state.page-1)+')" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;color:#374151"'+(state.page===1?' disabled style="padding:4px 10px;font-size:11px;border:1px solid #e5e7eb;border-radius:4px;background:#f9fafb;cursor:default;color:#9ca3af"':'')+'>&laquo; Prev</button>';
+
+    // Page numbers
+    var startP = Math.max(1, state.page - 3);
+    var endP = Math.min(totalPages, state.page + 3);
+    if (startP > 1) h += '<span style="font-size:11px;color:#9ca3af;padding:0 4px">...</span>';
+    for (var pg = startP; pg <= endP; pg++) {
+      if (pg === state.page) {
+        h += '<span style="padding:4px 10px;font-size:11px;border-radius:4px;background:#111827;color:#fff;font-weight:600">'+pg+'</span>';
+      } else {
+        h += '<button onclick="goPage('+pg+')" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;color:#374151">'+pg+'</button>';
+      }
+    }
+    if (endP < totalPages) h += '<span style="font-size:11px;color:#9ca3af;padding:0 4px">...</span>';
+
+    h += '<button onclick="goPage('+Math.min(totalPages,state.page+1)+')" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;color:#374151"'+(state.page===totalPages?' disabled style="padding:4px 10px;font-size:11px;border:1px solid #e5e7eb;border-radius:4px;background:#f9fafb;cursor:default;color:#9ca3af"':'')+'> Next &raquo;</button>';
+    h += '<button onclick="goPage('+totalPages+')" style="padding:4px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;color:#374151"'+(state.page===totalPages?' disabled style="padding:4px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:4px;background:#f9fafb;cursor:default;color:#9ca3af"':'')+'> Last</button>';
+    h += '<span style="font-size:11px;color:#6b7280;margin-left:8px">Showing '+(pageStart+1)+'-'+Math.min(pageEnd,filtered.length)+' of '+filtered.length+'</span>';
+    h += '</div>';
+  }
+
   h += '</div>';
+
+  document.getElementById("app").innerHTML = h;
+  renderOverlays();
+}
+
+function renderOverlays() {
+  let h = "";
 
   // Modal
   if (state.modalImg) {
@@ -527,7 +569,6 @@ function _render() {
     h += '<div class="admin-body">';
 
     if (adminTab === 'users') {
-      // Add user form
       h += '<div class="admin-section"><h3>Add User</h3>';
       h += '<div class="admin-add">';
       h += '<input id="addEmail" placeholder="email@openhouse.in">';
@@ -535,7 +576,6 @@ function _render() {
       h += '<button onclick="addUser()">Add User</button>';
       h += '</div></div>';
 
-      // Pending access requests
       if (pending.length > 0) {
         h += '<div class="admin-section"><h3>Access Requests <span class="pending-badge">'+pending.length+'</span></h3>';
         h += '<div class="admin-list">';
@@ -552,7 +592,6 @@ function _render() {
         h += '</div></div>';
       }
 
-      // Current users list
       h += '<div class="admin-section"><h3>Current Users ('+adminUsers.length+')</h3>';
       h += '<div class="admin-list">';
       adminUsers.forEach(u => {
@@ -564,7 +603,6 @@ function _render() {
       h += '</div></div>';
 
     } else if (adminTab === 'team') {
-      // Add team member form
       h += '<div class="admin-section"><h3>Add Team Member</h3>';
       h += '<div style="font-size:11px;color:#6b7280;margin-bottom:8px">Display name must exactly match names in assigned_by / field_exec columns</div>';
       h += '<div class="admin-add">';
@@ -580,12 +618,10 @@ function _render() {
       h += '<button onclick="addTeamMember()">Add</button>';
       h += '</div></div>';
 
-      // How visibility works
       h += '<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:#0369a1">';
       h += '<b>How visibility works:</b> Each person sees records where their Display Name appears in Assigned By, Field Exec, or Token By. They also see records of their direct reportees. Admins see everything.';
       h += '</div>';
 
-      // Team list
       h += '<div class="admin-section"><h3>Team Directory</h3>';
       h += '<div class="admin-list">';
       if (adminTeam.length === 0) {
@@ -606,12 +642,10 @@ function _render() {
       h += '</div></div>';
     }
 
-    // Bugs tab
     if (adminTab === 'bugs') {
       if (adminBugs.length === 0) {
         h += '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:13px">No bug reports yet</div>';
       } else {
-        // Stats bar
         const bugStats = {open:0, in_progress:0, resolved:0, closed:0};
         adminBugs.forEach(b => { bugStats[b.status] = (bugStats[b.status]||0) + 1; });
         h += '<div style="display:flex;gap:12px;margin-bottom:16px;font-size:12px">';
@@ -625,26 +659,19 @@ function _render() {
           const sevClass = "sev-"+(b.severity||"medium");
           const stClass = "bst-"+(b.status||"open");
           const ago = timeAgo(b.created_at);
-
           h += '<div class="bug-card">';
-          h += '<div class="bug-card-header">';
-          h += '<div>';
+          h += '<div class="bug-card-header"><div>';
           h += '<div class="bug-card-title">#'+b.id+' '+esc(b.title)+'</div>';
           h += '<div class="bug-card-meta">'+esc(b.reported_by)+' &middot; '+ago;
           if (b.page) h += ' &middot; '+esc(b.page);
-          if (b.browser_info) h += ' &middot; '+esc(b.browser_info);
-          if (b.screen_size) h += ' &middot; '+esc(b.screen_size);
           h += '</div></div>';
           h += '<div style="display:flex;gap:4px;flex-shrink:0">';
           h += '<span class="bug-severity '+sevClass+'">'+esc(b.severity)+'</span>';
           h += '<span class="bug-status-badge '+stClass+'">'+esc(b.status)+'</span>';
           h += '</div></div>';
-
           if (b.description) h += '<div class="bug-card-desc">'+esc(b.description)+'</div>';
           if (b.steps_to_reproduce) h += '<div style="font-size:11px;color:#6b7280;margin-bottom:8px;white-space:pre-wrap"><b>Steps:</b> '+esc(b.steps_to_reproduce)+'</div>';
           if (b.screenshot_url) h += '<div style="margin-bottom:8px"><a href="'+esc(b.screenshot_url)+'" target="_blank" style="font-size:11px;color:#2563eb">View Screenshot</a></div>';
-
-          // Admin actions
           h += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;border-top:1px solid #e5e7eb;padding-top:8px;margin-top:4px">';
           h += '<select onchange="updateBugStatus('+b.id+',this.value)" style="padding:3px 6px;font-size:11px;border:1px solid #d1d5db;border-radius:4px">';
           ["open","in_progress","resolved","closed"].forEach(s => {
@@ -653,9 +680,7 @@ function _render() {
           h += '</select>';
           h += '<input value="'+esc(b.admin_notes||"")+'" placeholder="Admin notes..." oninput="debouncedBugNote('+b.id+',this.value)" style="flex:1;padding:4px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;outline:none">';
           if (b.resolved_by) h += '<span style="font-size:10px;color:#059669">Resolved by '+esc(b.resolved_by)+'</span>';
-          h += '</div>';
-
-          h += '</div>';
+          h += '</div></div>';
         });
       }
     }
@@ -663,7 +688,7 @@ function _render() {
     h += '</div></div></div>';
   }
 
-  // Floating Bug Report Button (visible to all users)
+  // Floating Bug Report Button
   if (currentUser) {
     h += '<button class="bug-btn" onclick="openBugForm()">&#128027; Report Bug</button>';
   }
@@ -674,45 +699,39 @@ function _render() {
     h += '<div class="bug-modal">';
     h += '<div class="bug-header"><h2>&#128027; Report a Bug</h2><button class="admin-close" onclick="closeBugForm()">&times;</button></div>';
     h += '<div class="bug-body">';
-
     if (bugSubmitted) {
       h += '<div class="bug-success">&#9989; Bug reported successfully!<br><span style="font-size:12px;color:#6b7280">The admin will review it shortly.</span></div>';
       h += '<div style="text-align:center;margin-top:12px"><button onclick="closeBugForm()" style="padding:8px 20px;background:#111827;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer">Close</button></div>';
     } else {
       h += '<div class="bug-field"><label>What went wrong? *</label>';
       h += '<input id="bugTitle" placeholder="e.g. Status dropdown not saving on Noida properties"></div>';
-
       h += '<div class="bug-field"><label>Describe in detail</label>';
       h += '<textarea id="bugDesc" placeholder="What were you doing? What did you expect to happen? What happened instead?"></textarea></div>';
-
       h += '<div class="bug-field"><label>Steps to reproduce</label>';
       h += '<textarea id="bugSteps" placeholder="1. Go to...\n2. Click on...\n3. See error..." style="min-height:60px"></textarea></div>';
-
       h += '<div style="display:flex;gap:10px;margin-bottom:14px">';
       h += '<div class="bug-field" style="flex:1;margin-bottom:0"><label>Severity</label>';
       h += '<select id="bugSeverity"><option value="low">Low - cosmetic / minor</option><option value="medium" selected>Medium - broken but workaround exists</option><option value="high">High - key feature broken</option><option value="critical">Critical - dashboard unusable</option></select></div>';
       h += '<div class="bug-field" style="flex:1;margin-bottom:0"><label>Page / Section</label>';
       h += '<select id="bugPage"><option value="Dashboard - Main Table">Main Table</option><option value="Dashboard - Expanded Row">Expanded Row / Images</option><option value="Dashboard - Filters">Filters / Search / Tabs</option><option value="Dashboard - Status">Status Dropdown</option><option value="Dashboard - Comments">Comments</option><option value="Dashboard - Login">Login / Auth</option><option value="Dashboard - Admin Panel">Admin Panel</option><option value="Other">Other</option></select></div>';
       h += '</div>';
-
       h += '<div class="bug-field"><label>Screenshot URL (optional)</label>';
       h += '<input id="bugScreenshot" placeholder="Paste a link to screenshot (Google Drive, Imgur etc.)"></div>';
-
       h += '<div style="font-size:10px;color:#9ca3af;margin-bottom:12px">Auto-captured: your email, browser info, screen size, timestamp</div>';
       h += '<button class="bug-submit" id="bugSubmitBtn" onclick="submitBugReport()">Submit Bug Report</button>';
     }
-
     h += '</div></div></div>';
   }
 
-  document.getElementById("app").innerHTML = h;
+  document.getElementById("overlays").innerHTML = h;
 }
 
 // ── Event Handlers ──
-function toggleTab(s) { state.statusFilter = state.statusFilter === s ? "All" : s; render(); }
+function toggleTab(s) { state.statusFilter = state.statusFilter === s ? "All" : s; state.page = 1; render(); }
 let searchTimer = null;
 function updateSearch(v) {
   state.search = v;
+  state.page = 1;
   clearTimeout(searchTimer);
   searchTimer = setTimeout(function() {
     const el = document.getElementById("searchBox");
@@ -724,14 +743,17 @@ function updateSearch(v) {
 }
 function updateFilter(key, v) {
   state[key] = v;
+  state.page = 1;
   try { render(); } catch(e) { console.error("Render error on filter:", e); }
 }
+
+function goPage(n) { state.page = n; render(); window.scrollTo(0,0); }
 function toggleExpand(uid) {
   state.expandedId = state.expandedId === uid ? null : uid;
   try { render(); } catch(e) { console.error("Render crash:", e); alert("Render error: " + e.message); }
 }
-function showModal(src) { state.modalImg = src; render(); }
-function closeModal() { state.modalImg = null; render(); }
+function showModal(src) { state.modalImg = src; renderOverlays(); }
+function closeModal() { state.modalImg = null; renderOverlays(); }
 
 function changeStatus(uid, newStatus) {
   const prop = DATA.find(p => p.uid === uid);
@@ -759,19 +781,21 @@ async function logout() {
 }
 
 // ── Admin ──
-async function openAdmin() {
+function openAdmin() {
   showAdminPanel = true;
   adminTab = "users";
-  await Promise.all([loadUsers(), loadRequests(), loadTeam(), loadBugs()]);
-  render();
+  renderOverlays();
+  Promise.all([loadUsers(), loadRequests(), loadTeam(), loadBugs()]).then(() => renderOverlays());
 }
 
-function closeAdmin() { showAdminPanel = false; render(); }
+function closeAdmin() { showAdminPanel = false; renderOverlays(); }
 
 function switchAdminTab(tab) {
   adminTab = tab;
-  if (tab === "bugs") loadBugs().then(() => render());
-  else render();
+  renderOverlays();
+  if (tab === "bugs") loadBugs().then(() => renderOverlays());
+  else if (tab === "team") loadTeam().then(() => renderOverlays());
+  else if (tab === "users") Promise.all([loadUsers(), loadRequests()]).then(() => renderOverlays());
 }
 
 async function loadUsers() {
@@ -808,7 +832,7 @@ async function addUser() {
   document.getElementById("addEmail").value = "";
   await loadUsers();
   await loadRequests();
-  render();
+  renderOverlays();
 }
 
 async function removeUser(email) {
@@ -819,7 +843,7 @@ async function removeUser(email) {
     body: JSON.stringify({ email })
   });
   await loadUsers();
-  render();
+  renderOverlays();
 }
 
 async function handleRequest(id, action) {
@@ -829,7 +853,7 @@ async function handleRequest(id, action) {
     body: JSON.stringify({ id, action })
   });
   await Promise.all([loadUsers(), loadRequests()]);
-  render();
+  renderOverlays();
 }
 
 async function addTeamMember() {
@@ -844,7 +868,7 @@ async function addTeamMember() {
     body: JSON.stringify({ email, display_name, manager_email })
   });
   await loadTeam();
-  render();
+  renderOverlays();
 }
 
 async function removeTeamMember(id) {
@@ -855,12 +879,12 @@ async function removeTeamMember(id) {
     body: JSON.stringify({ id })
   });
   await loadTeam();
-  render();
+  renderOverlays();
 }
 
 // ── Bug Reporter ──
-function openBugForm() { showBugForm = true; bugSubmitted = false; render(); }
-function closeBugForm() { showBugForm = false; bugSubmitted = false; render(); }
+function openBugForm() { showBugForm = true; bugSubmitted = false; renderOverlays(); }
+function closeBugForm() { showBugForm = false; bugSubmitted = false; renderOverlays(); }
 
 async function submitBugReport() {
   const title = document.getElementById("bugTitle").value.trim();
@@ -887,7 +911,7 @@ async function submitBugReport() {
 
     if (res.ok) {
       bugSubmitted = true;
-      render();
+      renderOverlays();
     } else {
       const err = await res.json().catch(() => ({}));
       alert("Failed: " + (err.error || "Unknown error"));
@@ -913,7 +937,7 @@ async function updateBugStatus(id, status) {
     body: JSON.stringify({ id, status })
   });
   await loadBugs();
-  render();
+  renderOverlays();
 }
 
 const bugNoteTimers = {};
@@ -949,10 +973,12 @@ async function init() {
     const authData = await authRes.json();
     currentUser = authData.user;
 
-    // If admin, load pending requests count for badge
+    // If admin, preload all admin panel data in background
     if (currentUser.role === "admin") {
       loadRequests();
       loadBugs();
+      loadUsers();
+      loadTeam();
     }
 
     await fetchProperties();
