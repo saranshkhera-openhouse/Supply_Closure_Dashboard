@@ -183,6 +183,7 @@ async function fetchProperties() {
         p.documentsAvailable = ensureArray(p.documentsAvailable);
         p.furnishingDetails = ensureArray(p.furnishingDetails);
       });
+      normalizePocNames();
       const now = new Date();
       lastRefreshed = now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit" });
       return;
@@ -256,6 +257,49 @@ function getBalconyView(p) {
   const bd = ensureArray(p.balconyDetails);
   if (bd.length === 0) return "";
   return [...new Set(bd.map(b => b.view))].join(", ");
+}
+
+// Name cleanup: normalize POC / field exec names
+const POC_NAME_MAP = {
+  "abhishek": "Abhishek Rathore",
+  "animesh": "Animesh Singh",
+  "apurv": "Apurv Nath",
+  "apurva": "Apurv Nath",
+  "nishant": "Nishant Kumar",
+  "rahulsheel": "Rahul Sheel",
+  "rupali": "Rupali Prasad",
+  "shashank": "Shashank Kumar",
+  "sushmita": "Sushmita Roy",
+  "kavita": "Kavita Rawat",
+  "arti": "Arti Ahirwar",
+  "sahil": "Sahil Singh",
+  "nisha": "Nisha Deewan",
+  "praveen": "Praveen Kumar",
+  "aman": "Aman Dixit",
+};
+const POC_REMOVE = ["oh sold", "oh_sold", ""];
+
+function cleanPocName(name) {
+  if (!name) return "";
+  var trimmed = name.trim();
+  if (POC_REMOVE.includes(trimmed.toLowerCase())) return "";
+  if (trimmed.includes("/")) {
+    var parts = trimmed.split("/").map(function(s){return s.trim()});
+    parts = parts.map(function(p) { return POC_NAME_MAP[p.toLowerCase()] || p; });
+    return parts.join(" / ");
+  }
+  var lower = trimmed.toLowerCase().replace(/\s+/g, "");
+  if (POC_NAME_MAP[lower]) return POC_NAME_MAP[lower];
+  var lowerSpaced = trimmed.toLowerCase().trim();
+  if (POC_NAME_MAP[lowerSpaced]) return POC_NAME_MAP[lowerSpaced];
+  return trimmed;
+}
+
+function normalizePocNames() {
+  DATA.forEach(function(p) {
+    if (p.assignedBy) p.assignedBy = cleanPocName(p.assignedBy);
+    if (p.fieldExec) p.fieldExec = cleanPocName(p.fieldExec);
+  });
 }
 
 // Safety: parse JSON strings that should be arrays
@@ -1052,6 +1096,7 @@ async function silentRefresh() {
     if (newHash !== lastDataHash) {
       lastDataHash = newHash;
       DATA = newData;
+      normalizePocNames();
       const now = new Date();
       lastRefreshed = now.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit" });
       render();
