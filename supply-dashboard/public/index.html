@@ -107,20 +107,6 @@ th.sortable { cursor:pointer; user-select:none; }
 th.sortable:hover { background:#eef2ff; }
 th .sort-icon { font-size:10px; margin-left:3px; color:#9ca3af; }
 th .sort-icon.active { color:#111827; }
-/* Edit Modal */
-.edit-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:998; display:flex; align-items:center; justify-content:center; }
-.edit-modal { background:#fff; border-radius:12px; width:750px; max-height:85vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
-.edit-header { padding:16px 20px; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; }
-.edit-header h2 { font-size:15px; font-weight:700; color:#111827; }
-.edit-body { padding:16px 20px; }
-.edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; }
-.edit-field label { display:block; font-size:11px; font-weight:600; color:#6b7280; margin-bottom:3px; }
-.edit-field input, .edit-field select, .edit-field textarea { width:100%; padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:12px; outline:none; color:#111827; font-family:inherit; }
-.edit-field textarea { min-height:60px; resize:vertical; }
-.edit-save { padding:8px 24px; background:#111827; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
-.edit-save:hover { background:#1f2937; }
-.edit-btn { padding:4px 10px; background:#2563eb; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:500; cursor:pointer; margin-top:8px; }
-.edit-btn:hover { background:#1d4ed8; }
 .role-select { padding:2px 6px; font-size:11px; border:1px solid #d1d5db; border-radius:4px; }
 </style>
 </head>
@@ -167,7 +153,6 @@ let showBugForm = false;
 let bugSubmitted = false;
 let adminBugs = [];
 let lastRefreshed = "";
-let editingProperty = null; // property being edited in modal
 let state = {
   search: "",
   cityFilter: "All",
@@ -614,20 +599,9 @@ function _render() {
         h += '<div style="font-size:11px;color:#9ca3af;font-style:italic">Visit not completed \u2014 no images available</div>';
       }
 
-      // Edit button (admin only)
-      if (currentUser && currentUser.role === 'admin') {
-        h += '<div style="margin-top:12px;border-top:1px solid #e5e7eb;padding-top:10px"><button class="edit-btn" onclick="event.stopPropagation();openEditProperty(\''+p.uid+'\')">&#9998; Edit Property</button></div>';
-      }
-
       h += '</div></td></tr>';
       } catch(expandErr) {
-        // Even on error, show edit button
-        var errH = '<tr class="expand-row"><td colspan="20" style="padding:12px 20px"><div style="color:#ef4444;font-size:12px;margin-bottom:8px">Error loading details: '+esc(expandErr.message)+'</div>';
-        if (currentUser && currentUser.role === 'admin') {
-          errH += '<button class="edit-btn" onclick="event.stopPropagation();openEditProperty(\''+p.uid+'\')">&#9998; Edit Property</button>';
-        }
-        errH += '</td></tr>';
-        h += errH;
+        h += '<tr class="expand-row"><td colspan="20" style="padding:12px 20px;color:#ef4444;font-size:12px">Error loading details: '+esc(expandErr.message)+'</td></tr>';
         console.error("Expand error for "+p.uid+":", expandErr);
       }
     }
@@ -857,108 +831,6 @@ function renderOverlays() {
     h += '</div></div></div>';
   }
 
-  // Edit Property Modal
-  if (editingProperty) {
-    var ep = editingProperty;
-    var pocNames = [...new Set(DATA.map(function(p){return p.assignedBy}).filter(Boolean))].sort();
-    var execNames = [...new Set(DATA.map(function(p){return p.fieldExec}).filter(Boolean))].sort();
-    h += '<div class="edit-overlay" onclick="if(event.target===this)closeEditProperty()">';
-    h += '<div class="edit-modal">';
-    h += '<div class="edit-header"><h2>Edit Property: '+esc(ep.society)+' - '+esc(ep.unitNo)+'</h2><button class="admin-close" onclick="closeEditProperty()">&times;</button></div>';
-    h += '<div class="edit-body">';
-    h += '<div class="edit-grid">';
-
-    // Property fields
-    h += ef("Society","ep_society",ep.society);
-    h += ef("Location","ep_locality",ep.locality);
-    h += ef("Tower","ep_towerNo",ep.towerNo);
-    h += ef("Unit No.","ep_unitNo",ep.unitNo);
-    h += ef("Configuration","ep_configuration",ep.configuration);
-    h += ef("Ask Price (Lakhs)","ep_demandPrice",ep.demandPrice);
-    h += ef("Area (Sqft)","ep_areaSqft",ep.areaSqft);
-    h += ef("Floor","ep_floor",ep.floor);
-    h += ef("Source","ep_source",ep.source);
-    h += ef("Owner First Name","ep_firstName",ep.ownerName ? ep.ownerName.split(" ")[0] : "");
-    h += ef("Owner Last Name","ep_lastName",ep.ownerName ? ep.ownerName.split(" ").slice(1).join(" ") : "");
-    h += ef("Contact No.","ep_contactNo",ep.contactNo);
-    h += ef("Exit Facing","ep_exitFacing",ep.exitFacing);
-    h += ef("Bathrooms","ep_bathrooms",ep.bathrooms);
-    h += ef("Balconies","ep_balconies",ep.balconies);
-    h += ef("Parking","ep_parking",ep.parking);
-    h += ef("Furnishing","ep_furnishing",ep.furnishing);
-    h += ef("Registry Status","ep_registryStatus",ep.registryStatus);
-    h += ef("Occupancy","ep_occupancyStatus",ep.occupancyStatus);
-    h += ef("GSP (Lakhs)","ep_guaranteedSalePrice",ep.guaranteedSalePrice);
-    h += ef("Perf. Guarantee","ep_performanceGuarantee",ep.performanceGuarantee);
-    h += ef("Initial Period (days)","ep_initialPeriod",ep.initialPeriod);
-    h += ef("Grace Period (days)","ep_gracePeriod",ep.gracePeriod);
-    h += ef("Outstanding Loan","ep_outstandingLoan",ep.outstandingLoan);
-    h += ef("Bank (Loan)","ep_bankNameLoan",ep.bankNameLoan);
-    h += ef("Video/Photos Link","ep_videoLink",ep.videoLink);
-
-    // POC dropdown
-    h += '<div class="edit-field"><label>POC (Assigned By)</label>';
-    h += '<select id="ep_assignedBy"><option value="">—</option>';
-    pocNames.forEach(function(n){ h += '<option value="'+esc(n)+'"'+(ep.assignedBy===n?' selected':'')+'>'+esc(n)+'</option>'; });
-    h += '</select></div>';
-
-    // Field Exec dropdown
-    h += '<div class="edit-field"><label>Field Exec</label>';
-    h += '<select id="ep_fieldExec"><option value="">—</option>';
-    execNames.forEach(function(n){ h += '<option value="'+esc(n)+'"'+(ep.fieldExec===n?' selected':'')+'>'+esc(n)+'</option>'; });
-    h += '</select></div>';
-
-    h += '</div>'; // close edit-grid
-
-    // Photo Management
-    h += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #e5e7eb">';
-    h += '<div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:10px">Photos & Images</div>';
-
-    h += '<div class="edit-grid" style="margin-bottom:12px">';
-    h += '<div class="edit-field"><label>Video/Photos Link</label><input id="ep_videoLink" value="'+esc(ep.videoLink||'')+'"></div>';
-    h += '<div class="edit-field"><label>Exit Compass Image URL</label><input id="ep_exitCompassImage" value="'+esc(ep.exitCompassImage||'')+'"></div>';
-    h += '</div>';
-
-    // Room images
-    h += '<div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">Room Images</div>';
-    var rooms = ensureArray(ep.balconyDetails);
-    if (!window._editRooms) window._editRooms = rooms.length > 0 ? rooms.map(function(r){return Object.assign({},r)}) : [];
-
-    window._editRooms.forEach(function(room, ri) {
-      h += '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:8px">';
-      h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:11px;font-weight:600;color:#374151">Room '+(ri+1)+'</span><button onclick="removeEditRoom('+ri+')" style="font-size:10px;color:#ef4444;background:none;border:none;cursor:pointer">Remove</button></div>';
-      h += '<div class="edit-grid">';
-      h += '<div class="edit-field"><label>Room Name</label><select id="epr_name_'+ri+'" onchange="window._editRooms['+ri+'].attached_to=this.value"><option value="">Select...</option>';
-      ["Master Bedroom","2nd Bedroom","3rd Bedroom","Kitchen","Living Room","Balcony","Drawing Room","Study Room"].forEach(function(n){
-        h += '<option value="'+n+'"'+((room.attached_to||"")===n?' selected':'')+'>'+n+'</option>';
-      });
-      h += '</select></div>';
-      h += '<div class="edit-field"><label>Facing</label><select id="epr_facing_'+ri+'" onchange="window._editRooms['+ri+'].facing=this.value"><option value="">Select...</option>';
-      ["North","North-East","East","South-East","South","South-West","West","North-West"].forEach(function(f){
-        h += '<option value="'+f+'"'+((room.facing||"")===f?' selected':'')+'>'+f+'</option>';
-      });
-      h += '</select></div>';
-      h += '<div class="edit-field"><label>View</label><select id="epr_view_'+ri+'" onchange="window._editRooms['+ri+'].view=this.value"><option value="">Select...</option>';
-      ["Open Area","Garden","Road","Other Building","Pool","Park","Boundary Wall","Mountain"].forEach(function(v){
-        h += '<option value="'+v+'"'+((room.view||"")===v?' selected':'')+'>'+v+'</option>';
-      });
-      h += '</select></div>';
-      h += '<div class="edit-field"><label>View Image URL</label><input value="'+esc(room.view_image||'')+'" oninput="window._editRooms['+ri+'].view_image=this.value"></div>';
-      h += '<div class="edit-field"><label>Compass Image URL</label><input value="'+esc(room.compass_image||'')+'" oninput="window._editRooms['+ri+'].compass_image=this.value"></div>';
-      h += '</div></div>';
-    });
-
-    h += '<button onclick="addEditRoom()" style="padding:4px 12px;font-size:11px;border:1px dashed #d1d5db;border-radius:6px;background:#fff;color:#374151;cursor:pointer;width:100%">+ Add Room</button>';
-    h += '</div>';
-
-    h += '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-top:12px;border-top:1px solid #e5e7eb">';
-    h += '<button onclick="closeEditProperty()" style="padding:8px 20px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">Cancel</button>';
-    h += '<button class="edit-save" id="editSaveBtn" onclick="saveEditProperty()">Save Changes</button>';
-    h += '</div>';
-
-    h += '</div></div></div>';
-  }
-
   document.getElementById("overlays").innerHTML = h;
 }
 
@@ -974,96 +846,6 @@ function toggleSort(col) {
   }
   state.page = 1;
   render();
-}
-
-// Edit field helper for modal
-function ef(label, id, value) {
-  return '<div class="edit-field"><label>'+label+'</label><input id="'+id+'" value="'+esc(value||'')+'"></div>';
-}
-
-function openEditProperty(uid) {
-  var p = DATA.find(function(d){ return d.uid === uid; });
-  if (!p) return;
-  editingProperty = Object.assign({}, p);
-  window._editRooms = ensureArray(p.balconyDetails).map(function(r){ return Object.assign({}, r); });
-  renderOverlays();
-}
-
-function closeEditProperty() {
-  editingProperty = null;
-  window._editRooms = [];
-  renderOverlays();
-}
-
-function addEditRoom() {
-  window._editRooms.push({ attached_to:"", facing:"", view:"", view_image:"", compass_image:"" });
-  renderOverlays();
-}
-
-function removeEditRoom(idx) {
-  window._editRooms.splice(idx, 1);
-  renderOverlays();
-}
-
-async function saveEditProperty() {
-  if (!editingProperty) return;
-  var btn = document.getElementById("editSaveBtn");
-  if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
-
-  var updates = {
-    society_name: document.getElementById("ep_society").value,
-    locality: document.getElementById("ep_locality").value,
-    tower_no: document.getElementById("ep_towerNo").value,
-    unit_no: document.getElementById("ep_unitNo").value,
-    configuration: document.getElementById("ep_configuration").value,
-    demand_price: document.getElementById("ep_demandPrice").value,
-    area_sqft: document.getElementById("ep_areaSqft").value,
-    floor: document.getElementById("ep_floor").value,
-    source: document.getElementById("ep_source").value,
-    first_name: document.getElementById("ep_firstName").value,
-    last_name: document.getElementById("ep_lastName").value,
-    contact_no: document.getElementById("ep_contactNo").value,
-    exit_facing: document.getElementById("ep_exitFacing").value,
-    bathrooms: document.getElementById("ep_bathrooms").value,
-    balconies: document.getElementById("ep_balconies").value,
-    parking: document.getElementById("ep_parking").value,
-    furnishing: document.getElementById("ep_furnishing").value,
-    registry_status: document.getElementById("ep_registryStatus").value,
-    occupancy_status: document.getElementById("ep_occupancyStatus").value,
-    guaranteed_sale_price: document.getElementById("ep_guaranteedSalePrice").value,
-    performance_guarantee: document.getElementById("ep_performanceGuarantee").value,
-    initial_period: document.getElementById("ep_initialPeriod").value,
-    grace_period: document.getElementById("ep_gracePeriod").value,
-    outstanding_loan: document.getElementById("ep_outstandingLoan").value,
-    bank_name_loan: document.getElementById("ep_bankNameLoan").value,
-    video_link: document.getElementById("ep_videoLink").value,
-    assigned_by: document.getElementById("ep_assignedBy").value,
-    field_exec: document.getElementById("ep_fieldExec").value,
-    exit_compass_image: document.getElementById("ep_exitCompassImage").value,
-    balcony_details: JSON.stringify(window._editRooms.filter(function(r){ return r.attached_to || r.view_image; })),
-  };
-
-  try {
-    var res = await fetch("/api/admin/edit-property", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uid: editingProperty.uid, updates: updates })
-    });
-    if (res.ok) {
-      editingProperty = null;
-      renderOverlays();
-      await fetchProperties();
-      normalizePocNames();
-      render();
-    } else {
-      var err = await res.json().catch(function(){ return {}; });
-      alert("Save failed: " + (err.error || "Unknown error"));
-      if (btn) { btn.disabled = false; btn.textContent = "Save Changes"; }
-    }
-  } catch(e) {
-    alert("Save failed: " + e.message);
-    if (btn) { btn.disabled = false; btn.textContent = "Save Changes"; }
-  }
 }
 
 async function changeUserRole(email, newRole) {
