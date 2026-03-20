@@ -578,7 +578,7 @@ function _render() {
       h += '</div>';
 
       // POC edit (admin only, not legacy)
-      if (currentUser && currentUser.role === 'admin' && !p.isLegacy) {
+      if (currentUser && currentUser.role === 'admin') {
         var pocNames = [...new Set(DATA.map(function(d){return d.assignedBy}).filter(Boolean))].sort();
         h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px" onclick="event.stopPropagation()">';
         h += '<span style="font-size:12px;font-weight:600;color:#0369a1">Change POC:</span>';
