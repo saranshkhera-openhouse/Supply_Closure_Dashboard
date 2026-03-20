@@ -351,7 +351,7 @@ function getFiltered() {
     }
     if (state.search) {
       const s = state.search.toLowerCase();
-      return [p.uid,p.society,p.ownerName,p.unitNo,p.fieldExec,p.locality,p.contactNo].some(v => (v||"").toLowerCase().includes(s));
+      return [p.uid,p.society,p.ownerName,p.towerNo,p.unitNo,p.fieldExec,p.locality,p.contactNo].some(v => (v||"").toLowerCase().includes(s));
     }
     return true;
   });
@@ -436,8 +436,8 @@ function _render() {
 
   // Table
   h += '<div id="tableWrap" style="flex:1;overflow:auto"><table><thead><tr>';
-  ["Society","Location","Unit No.","Config","Ask (in Lakhs)","Area (in Sqft)","Floor","Source","Name","Phone","Status","Exit Facing","Balcony View","POC","Offer Price","Closure Team Comments","Rahool Comments","Prashant Comments","Demand Team Comments"].forEach((hdr,i) => {
-    h += '<th'+(i>=15?' style="min-width:150px"':'')+'>'+hdr+'</th>';
+  ["Society","Location","Tower","Unit No.","Config","Ask (in Lakhs)","Area (in Sqft)","Floor","Source","Name","Phone","Status","Exit Facing","Balcony View","POC","Offer Price","Closure Team Comments","Rahool Comments","Prashant Comments","Demand Team Comments"].forEach((hdr,i) => {
+    h += '<th'+(i>=16?' style="min-width:150px"':'')+'>'+hdr+'</th>';
   });
   h += '</tr></thead><tbody>';
 
@@ -453,6 +453,7 @@ function _render() {
     h += '<tr class="datarow'+(isExp?' expanded':'')+'" onclick="toggleExpand(\''+p.uid+'\')">';
     h += '<td class="society-cell">'+esc(p.society)+'</td>';
     h += '<td>'+esc(p.locality)+'</td>';
+    h += '<td>'+(p.towerNo||"\u2014")+'</td>';
     h += '<td class="unit-cell">'+(p.unitNo||"\u2014")+'</td>';
     h += '<td>'+(p.configuration||"\u2014")+'</td>';
     h += '<td class="ask-cell">'+(p.demandPrice||"\u2014")+'</td>';
@@ -501,7 +502,7 @@ function _render() {
     // Expanded row
     if (isExp) {
       try {
-      h += '<tr class="expand-row"><td colspan="19"><div class="expand-content">';
+      h += '<tr class="expand-row"><td colspan="20"><div class="expand-content">';
       h += '<div class="detail-tags">';
       const rate = getRatePerSqft(p);
       if (rate) h += '<span>Rate/sqft: <b>\u20B9'+rate+'</b></span>';
@@ -545,7 +546,7 @@ function _render() {
 
       h += '</div></td></tr>';
       } catch(expandErr) {
-        h += '<tr class="expand-row"><td colspan="19" style="padding:12px 20px;color:#ef4444;font-size:12px">Error loading details: '+esc(expandErr.message)+'</td></tr>';
+        h += '<tr class="expand-row"><td colspan="20" style="padding:12px 20px;color:#ef4444;font-size:12px">Error loading details: '+esc(expandErr.message)+'</td></tr>';
         console.error("Expand error for "+p.uid+":", expandErr);
       }
     }
