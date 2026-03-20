@@ -56,6 +56,36 @@ module.exports = async function handler(req, res) {
         "rahool_comments": "rahoolComments",
         "prashant_comments": "prashantComments",
         "demand_team_comments": "demandTeamComments",
+        // Property fields (from edit modal)
+        "society_name": "society",
+        "locality": "locality",
+        "tower_no": "towerNo",
+        "unit_no": "unitNo",
+        "configuration": "configuration",
+        "demand_price": "demandPrice",
+        "area_sqft": "areaSqft",
+        "floor": "floor",
+        "source": "source",
+        "exit_facing": "exitFacing",
+        "first_name": "ownerName",
+        "contact_no": "contactNo",
+        "assigned_by": "assignedBy",
+        "field_exec": "fieldExec",
+        "bathrooms": "bathrooms",
+        "balconies": "balconies",
+        "parking": "parking",
+        "furnishing": "furnishing",
+        "registry_status": "registryStatus",
+        "occupancy_status": "occupancyStatus",
+        "video_link": "videoLink",
+        "guaranteed_sale_price": "guaranteedSalePrice",
+        "performance_guarantee": "performanceGuarantee",
+        "initial_period": "initialPeriod",
+        "grace_period": "gracePeriod",
+        "outstanding_loan": "outstandingLoan",
+        "bank_name_loan": "bankNameLoan",
+        "exit_compass_image": "exitCompassImage",
+        "balcony_details": "balconyDetails",
       };
       const COMMENT_TS_MAP = {
         "closure_team_comments": "closureTeamCommentsAt",
@@ -68,7 +98,14 @@ module.exports = async function handler(req, res) {
         if (!saved) return;
         Object.entries(saved).forEach(([dbField, obj]) => {
           const jsKey = FIELD_TO_KEY[dbField];
-          if (jsKey) p[jsKey] = obj.value;
+          if (jsKey) {
+            // Try parsing JSON for array fields
+            if (jsKey === "balconyDetails") {
+              try { p[jsKey] = JSON.parse(obj.value); } catch { p[jsKey] = []; }
+            } else {
+              p[jsKey] = obj.value;
+            }
+          }
           const tsKey = COMMENT_TS_MAP[dbField];
           if (tsKey && obj.updated_at) p[tsKey] = obj.updated_at;
         });

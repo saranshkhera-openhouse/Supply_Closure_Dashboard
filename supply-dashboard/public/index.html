@@ -370,7 +370,8 @@ function getFiltered() {
   var result = DATA.filter(p => {
     if (state.cityFilter !== "All" && p.city !== state.cityFilter) return false;
     if (state.statusFilter !== "All" && getStatus(p) !== state.statusFilter) return false;
-    if (state.pocFilter !== "All" && p.assignedBy !== state.pocFilter) return false;
+    if (state.pocFilter === "_blank_" && (p.assignedBy || "").trim() !== "") return false;
+    if (state.pocFilter !== "All" && state.pocFilter !== "_blank_" && p.assignedBy !== state.pocFilter) return false;
     if (state.sourceFilter !== "All") {
       const src = (p.source || "").toLowerCase();
       if (state.sourceFilter === "CP" && src !== "cp") return false;
@@ -465,7 +466,7 @@ function _render() {
   h += '<select onchange="updateFilter(\'statusFilter\',this.value)"><option value="All">All Status</option>';
   ALL_STATUSES.forEach(s => { h += '<option value="'+esc(s)+'"'+(state.statusFilter===s?' selected':'')+'>'+esc(s)+'</option>'; });
   h += '</select>';
-  h += '<select onchange="updateFilter(\'pocFilter\',this.value)"><option value="All">All POC</option>';
+  h += '<select onchange="updateFilter(\'pocFilter\',this.value)"><option value="All">All POC</option><option value="_blank_"'+(state.pocFilter==="_blank_"?' selected':'')+'>(Blank)</option>';
   pocs.filter(p=>p!=="All").sort((a,b) => a.localeCompare(b)).forEach(p => { h += '<option value="'+esc(p)+'"'+(state.pocFilter===p?' selected':'')+'>'+esc(p)+'</option>'; });
   h += '</select>';
   h += '<select onchange="updateFilter(\'sourceFilter\',this.value)"><option value="All">All Sources</option><option value="CP"'+(state.sourceFilter==="CP"?' selected':'')+'>CP</option><option value="Direct"'+(state.sourceFilter==="Direct"?' selected':'')+'>Direct</option></select>';
@@ -614,13 +615,19 @@ function _render() {
       }
 
       // Edit button (admin only)
-      if (currentUser && currentUser.role === 'admin' && !p.isLegacy) {
+      if (currentUser && currentUser.role === 'admin') {
         h += '<div style="margin-top:12px;border-top:1px solid #e5e7eb;padding-top:10px"><button class="edit-btn" onclick="event.stopPropagation();openEditProperty(\''+p.uid+'\')">&#9998; Edit Property</button></div>';
       }
 
       h += '</div></td></tr>';
       } catch(expandErr) {
-        h += '<tr class="expand-row"><td colspan="20" style="padding:12px 20px;color:#ef4444;font-size:12px">Error loading details: '+esc(expandErr.message)+'</td></tr>';
+        // Even on error, show edit button
+        var errH = '<tr class="expand-row"><td colspan="20" style="padding:12px 20px"><div style="color:#ef4444;font-size:12px;margin-bottom:8px">Error loading details: '+esc(expandErr.message)+'</div>';
+        if (currentUser && currentUser.role === 'admin') {
+          errH += '<button class="edit-btn" onclick="event.stopPropagation();openEditProperty(\''+p.uid+'\')">&#9998; Edit Property</button>';
+        }
+        errH += '</td></tr>';
+        h += errH;
         console.error("Expand error for "+p.uid+":", expandErr);
       }
     }
@@ -903,10 +910,45 @@ function renderOverlays() {
 
     h += '</div>'; // close edit-grid
 
-    // Image upload
+    // Photo Management
     h += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #e5e7eb">';
-    h += '<div class="edit-field"><label>Exit Compass Image URL</label>';
-    h += '<input id="ep_exitCompassImage" value="'+esc(ep.exitCompassImage||'')+'"></div>';
+    h += '<div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:10px">Photos & Images</div>';
+
+    h += '<div class="edit-grid" style="margin-bottom:12px">';
+    h += '<div class="edit-field"><label>Video/Photos Link</label><input id="ep_videoLink" value="'+esc(ep.videoLink||'')+'"></div>';
+    h += '<div class="edit-field"><label>Exit Compass Image URL</label><input id="ep_exitCompassImage" value="'+esc(ep.exitCompassImage||'')+'"></div>';
+    h += '</div>';
+
+    // Room images
+    h += '<div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">Room Images</div>';
+    var rooms = ensureArray(ep.balconyDetails);
+    if (!window._editRooms) window._editRooms = rooms.length > 0 ? rooms.map(function(r){return Object.assign({},r)}) : [];
+
+    window._editRooms.forEach(function(room, ri) {
+      h += '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:8px">';
+      h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:11px;font-weight:600;color:#374151">Room '+(ri+1)+'</span><button onclick="removeEditRoom('+ri+')" style="font-size:10px;color:#ef4444;background:none;border:none;cursor:pointer">Remove</button></div>';
+      h += '<div class="edit-grid">';
+      h += '<div class="edit-field"><label>Room Name</label><select id="epr_name_'+ri+'" onchange="window._editRooms['+ri+'].attached_to=this.value"><option value="">Select...</option>';
+      ["Master Bedroom","2nd Bedroom","3rd Bedroom","Kitchen","Living Room","Balcony","Drawing Room","Study Room"].forEach(function(n){
+        h += '<option value="'+n+'"'+((room.attached_to||"")===n?' selected':'')+'>'+n+'</option>';
+      });
+      h += '</select></div>';
+      h += '<div class="edit-field"><label>Facing</label><select id="epr_facing_'+ri+'" onchange="window._editRooms['+ri+'].facing=this.value"><option value="">Select...</option>';
+      ["North","North-East","East","South-East","South","South-West","West","North-West"].forEach(function(f){
+        h += '<option value="'+f+'"'+((room.facing||"")===f?' selected':'')+'>'+f+'</option>';
+      });
+      h += '</select></div>';
+      h += '<div class="edit-field"><label>View</label><select id="epr_view_'+ri+'" onchange="window._editRooms['+ri+'].view=this.value"><option value="">Select...</option>';
+      ["Open Area","Garden","Road","Other Building","Pool","Park","Boundary Wall","Mountain"].forEach(function(v){
+        h += '<option value="'+v+'"'+((room.view||"")===v?' selected':'')+'>'+v+'</option>';
+      });
+      h += '</select></div>';
+      h += '<div class="edit-field"><label>View Image URL</label><input value="'+esc(room.view_image||'')+'" oninput="window._editRooms['+ri+'].view_image=this.value"></div>';
+      h += '<div class="edit-field"><label>Compass Image URL</label><input value="'+esc(room.compass_image||'')+'" oninput="window._editRooms['+ri+'].compass_image=this.value"></div>';
+      h += '</div></div>';
+    });
+
+    h += '<button onclick="addEditRoom()" style="padding:4px 12px;font-size:11px;border:1px dashed #d1d5db;border-radius:6px;background:#fff;color:#374151;cursor:pointer;width:100%">+ Add Room</button>';
     h += '</div>';
 
     h += '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-top:12px;border-top:1px solid #e5e7eb">';
@@ -943,11 +985,23 @@ function openEditProperty(uid) {
   var p = DATA.find(function(d){ return d.uid === uid; });
   if (!p) return;
   editingProperty = Object.assign({}, p);
+  window._editRooms = ensureArray(p.balconyDetails).map(function(r){ return Object.assign({}, r); });
   renderOverlays();
 }
 
 function closeEditProperty() {
   editingProperty = null;
+  window._editRooms = [];
+  renderOverlays();
+}
+
+function addEditRoom() {
+  window._editRooms.push({ attached_to:"", facing:"", view:"", view_image:"", compass_image:"" });
+  renderOverlays();
+}
+
+function removeEditRoom(idx) {
+  window._editRooms.splice(idx, 1);
   renderOverlays();
 }
 
@@ -986,6 +1040,7 @@ async function saveEditProperty() {
     assigned_by: document.getElementById("ep_assignedBy").value,
     field_exec: document.getElementById("ep_fieldExec").value,
     exit_compass_image: document.getElementById("ep_exitCompassImage").value,
+    balcony_details: JSON.stringify(window._editRooms.filter(function(r){ return r.attached_to || r.view_image; })),
   };
 
   try {

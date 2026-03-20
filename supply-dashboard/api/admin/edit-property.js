@@ -1,7 +1,6 @@
-const { getDB } = require("./_db");
-const { requireAdmin } = require("./_auth");
+const { getDB } = require("../_db");
+const { requireAdmin } = require("../_auth");
 
-// Fields that admins can edit via the edit property modal
 const EDITABLE_FIELDS = [
   "society_name", "locality", "tower_no", "unit_no", "configuration",
   "demand_price", "area_sqft", "floor", "source", "exit_facing",
@@ -10,7 +9,7 @@ const EDITABLE_FIELDS = [
   "registry_status", "occupancy_status", "video_link",
   "guaranteed_sale_price", "performance_guarantee",
   "initial_period", "grace_period", "outstanding_loan", "bank_name_loan",
-  "exit_compass_image"
+  "exit_compass_image", "balcony_details"
 ];
 
 module.exports = async function handler(req, res) {
@@ -28,15 +27,32 @@ module.exports = async function handler(req, res) {
 
     const sql = getDB();
 
-    // Build SET clause with only allowed fields
+    // Legacy rows → save each field to legacy_edits table
+    if (uid.startsWith("LEGACY-")) {
+      let count = 0;
+      for (const [field, value] of Object.entries(updates)) {
+        // Allow any field for legacy (we map JS keys to themselves)
+        const val = typeof value === "object" ? JSON.stringify(value) : (value || "");
+        await sql`
+          INSERT INTO legacy_edits (uid, field, value, updated_at)
+          VALUES (${uid}, ${field}, ${val}, NOW())
+          ON CONFLICT (uid, field) DO UPDATE SET value = ${val}, updated_at = NOW()
+        `;
+        count++;
+      }
+      return res.status(200).json({ success: true, uid, fieldsUpdated: count });
+    }
+
+    // Live rows → update properties table
     const setClauses = [];
     const values = [];
     let paramIdx = 1;
 
     for (const [field, value] of Object.entries(updates)) {
       if (EDITABLE_FIELDS.includes(field)) {
+        const val = typeof value === "object" ? JSON.stringify(value) : (value || "");
         setClauses.push(`${field} = $${paramIdx}`);
-        values.push(value || "");
+        values.push(val);
         paramIdx++;
       }
     }
