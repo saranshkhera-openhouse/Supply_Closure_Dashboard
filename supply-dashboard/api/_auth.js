@@ -28,12 +28,27 @@ async function verifySession(req) {
   }
 }
 
+// Fetch live role from DB (role in JWT might be stale if admin changed it)
+async function getLiveRole(email) {
+  try {
+    const { neon } = require("@neondatabase/serverless");
+    const sql = neon(process.env.DATABASE_URL);
+    const rows = await sql`SELECT role FROM dashboard_users WHERE LOWER(email) = ${email.toLowerCase()}`;
+    return rows.length > 0 ? rows[0].role : "viewer";
+  } catch {
+    return null; // fallback to JWT role if DB fails
+  }
+}
+
 async function requireAuth(req, res) {
   const user = await verifySession(req);
   if (!user) {
     res.status(401).json({ error: "Not authenticated" });
     return null;
   }
+  // Override with live role from DB
+  const liveRole = await getLiveRole(user.email);
+  if (liveRole) user.role = liveRole;
   return user;
 }
 

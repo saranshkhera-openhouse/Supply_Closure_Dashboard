@@ -577,6 +577,19 @@ function _render() {
       if (p.videoLink) h += '<a href="'+esc(p.videoLink)+'" target="_blank" style="color:#2563eb;text-decoration:none">\u25B6 Video/Photos</a>';
       h += '</div>';
 
+      // POC edit (admin only, not legacy)
+      if (currentUser && currentUser.role === 'admin' && !p.isLegacy) {
+        var pocNames = [...new Set(DATA.map(function(d){return d.assignedBy}).filter(Boolean))].sort();
+        h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px" onclick="event.stopPropagation()">';
+        h += '<span style="font-size:12px;font-weight:600;color:#0369a1">Change POC:</span>';
+        h += '<select onchange="changePoc(\''+p.uid+'\',this.value)" style="padding:4px 8px;font-size:12px;border:1px solid #93c5fd;border-radius:4px;outline:none">';
+        h += '<option value="">'+esc(p.assignedBy || "— Select —")+'</option>';
+        pocNames.forEach(function(n){ if(n!==p.assignedBy) h += '<option value="'+esc(n)+'">'+esc(n)+'</option>'; });
+        h += '</select>';
+        h += '<span id="dot_'+p.uid+'_assigned_by" class="save-dot '+(saveStatus[p.uid+'_assigned_by']||'')+'"></span>';
+        h += '</div>';
+      }
+
       if (p.documentsAvailable && p.documentsAvailable.length > 0) {
         h += '<div style="font-size:11px;color:#6b7280;margin-bottom:12px">Docs: '+p.documentsAvailable.map(function(d){return esc(d)}).join(' \u00B7 ')+'</div>';
       }
@@ -901,6 +914,37 @@ function changeOffer(uid, value) {
   const prop = DATA.find(p => p.uid === uid);
   if (prop) prop.offerPrice = value;
   debouncedSave(uid, "offer_price", value);
+}
+
+async function changePoc(uid, value) {
+  if (!value) return;
+  const prop = DATA.find(p => p.uid === uid);
+  if (prop) prop.assignedBy = value;
+
+  const key = uid + "_assigned_by";
+  saveStatus[key] = "saving";
+  renderSaveDot(key);
+
+  try {
+    const res = await fetch("/api/update", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid, field: "assigned_by", value })
+    });
+    if (res.ok) {
+      saveStatus[key] = "saved";
+      renderSaveDot(key);
+      setTimeout(function(){ saveStatus[key] = ""; renderSaveDot(key); }, 2000);
+      // Re-render to update POC in main table
+      render();
+    } else {
+      saveStatus[key] = "error";
+      renderSaveDot(key);
+    }
+  } catch {
+    saveStatus[key] = "error";
+    renderSaveDot(key);
+  }
 }
 
 // ── Auth ──

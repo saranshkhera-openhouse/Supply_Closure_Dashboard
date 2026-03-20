@@ -10,6 +10,12 @@ const COMMENT_FIELDS = [
   "demand_team_comments"
 ];
 
+// Fields only admins can change
+const ADMIN_FIELDS = ["assigned_by"];
+
+// All allowed fields
+const ALL_ALLOWED = [...COMMENT_FIELDS, ...ADMIN_FIELDS];
+
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "PATCH") return res.status(405).json({ error: "Method not allowed" });
@@ -34,9 +40,14 @@ module.exports = async function handler(req, res) {
       return res.status(403).json({ error: "Commenters can only edit comments, status, and offer price" });
     }
 
+    // Admins can edit all allowed fields
+    if (!ALL_ALLOWED.includes(field)) {
+      return res.status(400).json({ error: "Invalid field: " + field });
+    }
+
     // Legacy rows
     if (uid.startsWith("LEGACY-")) {
-      if (!COMMENT_FIELDS.includes(field)) {
+      if (!ALL_ALLOWED.includes(field)) {
         return res.status(400).json({ error: "Invalid field: " + field });
       }
       const sql = getDB();
@@ -48,7 +59,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ success: true, uid, field, value });
     }
 
-    if (!COMMENT_FIELDS.includes(field)) {
+    if (!ALL_ALLOWED.includes(field)) {
       return res.status(400).json({ error: "Invalid field: " + field });
     }
 
