@@ -1,7 +1,7 @@
 const { getDB } = require("./_db");
 const { requireAuth } = require("./_auth");
 
-const ALLOWED_FIELDS = [
+const COMMENT_FIELDS = [
   "status_override",
   "offer_price",
   "closure_team_comments",
@@ -17,6 +17,11 @@ module.exports = async function handler(req, res) {
   const user = await requireAuth(req, res);
   if (!user) return;
 
+  // Viewers cannot edit anything
+  if (user.role === "viewer") {
+    return res.status(403).json({ error: "Viewers cannot make edits" });
+  }
+
   try {
     const { uid, field, value } = req.body;
 
@@ -24,9 +29,14 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: "uid and field are required" });
     }
 
-    // Legacy rows — save to separate legacy_edits table
+    // Commenters can only edit comment fields
+    if (user.role === "commenter" && !COMMENT_FIELDS.includes(field)) {
+      return res.status(403).json({ error: "Commenters can only edit comments, status, and offer price" });
+    }
+
+    // Legacy rows
     if (uid.startsWith("LEGACY-")) {
-      if (!ALLOWED_FIELDS.includes(field)) {
+      if (!COMMENT_FIELDS.includes(field)) {
         return res.status(400).json({ error: "Invalid field: " + field });
       }
       const sql = getDB();
@@ -38,13 +48,12 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ success: true, uid, field, value });
     }
 
-    if (!ALLOWED_FIELDS.includes(field)) {
+    if (!COMMENT_FIELDS.includes(field)) {
       return res.status(400).json({ error: "Invalid field: " + field });
     }
 
     const sql = getDB();
 
-    // Comment fields also update their timestamp column
     const COMMENT_TS = {
       "closure_team_comments": "closure_team_comments_at",
       "rahool_comments": "rahool_comments_at",
@@ -53,8 +62,7 @@ module.exports = async function handler(req, res) {
     };
 
     const tsCol = COMMENT_TS[field];
-    let query;
-    let params;
+    let query, params;
     if (tsCol) {
       query = `UPDATE properties SET ${field} = $1, ${tsCol} = NOW() WHERE uid = $2 RETURNING uid`;
       params = [value || "", uid];

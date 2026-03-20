@@ -102,6 +102,26 @@ tr.datarow.expanded { background:#f8fafc; }
 .bst-in_progress { background:#fef3c7; color:#92400e; }
 .bst-resolved { background:#d1fae5; color:#065f46; }
 .bst-closed { background:#f3f4f6; color:#6b7280; }
+/* Sort */
+th.sortable { cursor:pointer; user-select:none; }
+th.sortable:hover { background:#eef2ff; }
+th .sort-icon { font-size:10px; margin-left:3px; color:#9ca3af; }
+th .sort-icon.active { color:#111827; }
+/* Edit Modal */
+.edit-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:998; display:flex; align-items:center; justify-content:center; }
+.edit-modal { background:#fff; border-radius:12px; width:750px; max-height:85vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+.edit-header { padding:16px 20px; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; }
+.edit-header h2 { font-size:15px; font-weight:700; color:#111827; }
+.edit-body { padding:16px 20px; }
+.edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; }
+.edit-field label { display:block; font-size:11px; font-weight:600; color:#6b7280; margin-bottom:3px; }
+.edit-field input, .edit-field select, .edit-field textarea { width:100%; padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:12px; outline:none; color:#111827; font-family:inherit; }
+.edit-field textarea { min-height:60px; resize:vertical; }
+.edit-save { padding:8px 24px; background:#111827; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
+.edit-save:hover { background:#1f2937; }
+.edit-btn { padding:4px 10px; background:#2563eb; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:500; cursor:pointer; margin-top:8px; }
+.edit-btn:hover { background:#1d4ed8; }
+.role-select { padding:2px 6px; font-size:11px; border:1px solid #d1d5db; border-radius:4px; }
 </style>
 </head>
 <body>
@@ -147,6 +167,7 @@ let showBugForm = false;
 let bugSubmitted = false;
 let adminBugs = [];
 let lastRefreshed = "";
+let editingProperty = null; // property being edited in modal
 let state = {
   search: "",
   cityFilter: "All",
@@ -155,9 +176,15 @@ let state = {
   sourceFilter: "All",
   expandedId: null,
   modalImg: null,
-  page: 1
+  page: 1,
+  sortCol: null,
+  sortDir: "asc"
 };
 const PAGE_SIZE = 50;
+
+function canEdit() {
+  return currentUser && (currentUser.role === "admin" || currentUser.role === "commenter");
+}
 
 // Debounce timers for auto-saving comments
 const saveTimers = {};
@@ -340,7 +367,7 @@ function timeAgo(ts) {
 }
 
 function getFiltered() {
-  return DATA.filter(p => {
+  var result = DATA.filter(p => {
     if (state.cityFilter !== "All" && p.city !== state.cityFilter) return false;
     if (state.statusFilter !== "All" && getStatus(p) !== state.statusFilter) return false;
     if (state.pocFilter !== "All" && p.assignedBy !== state.pocFilter) return false;
@@ -355,6 +382,25 @@ function getFiltered() {
     }
     return true;
   });
+
+  // Sort
+  if (state.sortCol) {
+    var col = state.sortCol;
+    var dir = state.sortDir === "asc" ? 1 : -1;
+    result.sort(function(a, b) {
+      var va = (a[col] || "").toString().toLowerCase();
+      var vb = (b[col] || "").toString().toLowerCase();
+      // Ascending: empty first; Descending: empty last
+      if (!va && vb) return -1 * dir;
+      if (va && !vb) return 1 * dir;
+      if (!va && !vb) return 0;
+      // Try numeric comparison
+      var na = parseFloat(va), nb = parseFloat(vb);
+      if (!isNaN(na) && !isNaN(nb)) return (na - nb) * dir;
+      return va.localeCompare(vb) * dir;
+    });
+  }
+  return result;
 }
 
 function getCounts() {
@@ -436,8 +482,18 @@ function _render() {
 
   // Table
   h += '<div id="tableWrap" style="flex:1;overflow:auto"><table><thead><tr>';
-  ["Society","Location","Tower","Unit No.","Config","Ask (in Lakhs)","Area (in Sqft)","Floor","Source","Name","Phone","Status","Exit Facing","Balcony View","POC","Offer Price","Closure Team Comments","Rahool Comments","Prashant Comments","Demand Team Comments"].forEach((hdr,i) => {
-    h += '<th'+(i>=16?' style="min-width:150px"':'')+'>'+hdr+'</th>';
+  var COLS = [
+    {hdr:"Society",key:"society"},{hdr:"Location",key:"locality"},{hdr:"Tower",key:"towerNo"},{hdr:"Unit No.",key:"unitNo"},{hdr:"Config",key:"configuration"},{hdr:"Ask (in Lakhs)",key:"demandPrice"},{hdr:"Area (in Sqft)",key:"areaSqft"},{hdr:"Floor",key:"floor"},{hdr:"Source",key:"source"},{hdr:"Name",key:"ownerName"},{hdr:"Phone",key:"contactNo"},{hdr:"Status",key:null},{hdr:"Exit Facing",key:"exitFacing"},{hdr:"Balcony View",key:null},{hdr:"POC",key:"assignedBy"},{hdr:"Offer Price",key:null},{hdr:"Closure Team Comments",key:null},{hdr:"Rahool Comments",key:null},{hdr:"Prashant Comments",key:null},{hdr:"Demand Team Comments",key:null}
+  ];
+  COLS.forEach(function(col,i) {
+    var sortable = col.key ? ' class="sortable" onclick="toggleSort(\''+col.key+'\')"' : '';
+    var icon = '';
+    if (col.key && state.sortCol === col.key) {
+      icon = ' <span class="sort-icon active">'+(state.sortDir==='asc'?'\u25B2':'\u25BC')+'</span>';
+    } else if (col.key) {
+      icon = ' <span class="sort-icon">\u25B2</span>';
+    }
+    h += '<th'+sortable+(i>=16?' style="min-width:150px'+(col.key?';cursor:pointer':'')+'"':col.key?'':'')+'>'+col.hdr+icon+'</th>';
   });
   h += '</tr></thead><tbody>';
 
@@ -463,22 +519,30 @@ function _render() {
     h += '<td>'+esc(p.ownerName)+'</td>';
     h += '<td style="font-size:11px;white-space:nowrap">'+(p.contactNo||"\u2014")+'</td>';
 
-    // Status dropdown — editable for all rows
+    // Status
     h += '<td onclick="event.stopPropagation()">';
-    h += '<select class="status-select" style="background:'+sc.bg+';color:'+sc.text+'" onchange="changeStatus(\''+p.uid+'\',this.value)">';
-    ALL_STATUSES.forEach(s => { h += '<option value="'+esc(s)+'"'+(status===s?' selected':'')+' style="background:#fff;color:#111827">'+esc(s)+'</option>'; });
-    h += '</select>';
-    h += '<span id="dot_'+p.uid+'_status_override" class="save-dot '+(saveStatus[p.uid+'_status_override']||'')+'"></span>';
+    if (canEdit()) {
+      h += '<select class="status-select" style="background:'+sc.bg+';color:'+sc.text+'" onchange="changeStatus(\''+p.uid+'\',this.value)">';
+      ALL_STATUSES.forEach(s => { h += '<option value="'+esc(s)+'"'+(status===s?' selected':'')+' style="background:#fff;color:#111827">'+esc(s)+'</option>'; });
+      h += '</select>';
+      h += '<span id="dot_'+p.uid+'_status_override" class="save-dot '+(saveStatus[p.uid+'_status_override']||'')+'"></span>';
+    } else {
+      h += '<span class="status-select" style="background:'+sc.bg+';color:'+sc.text+';display:inline-block;padding:3px 8px;border-radius:4px">'+esc(status)+'</span>';
+    }
     h += '</td>';
 
     h += '<td>'+(p.exitFacing||"\u2014")+'</td>';
     h += '<td class="balcony-cell">'+(getBalconyView(p)||p.balconyView||"\u2014")+'</td>';
     h += '<td class="small-cell">'+esc(p.assignedBy||"\u2014")+'</td>';
 
-    // Offer field — editable for all rows
-    h += '<td onclick="event.stopPropagation()"><input type="text" value="'+esc(p.offerPrice||'')+'" placeholder="\u2014" oninput="changeOffer(\''+p.uid+'\',this.value)" style="width:70px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;font-weight:600;color:#047857;outline:none;font-family:inherit;text-align:right"><span id="dot_'+p.uid+'_offer_price" class="save-dot '+(saveStatus[p.uid+'_offer_price']||'')+'"></span></td>';
+    // Offer
+    if (canEdit()) {
+      h += '<td onclick="event.stopPropagation()"><input type="text" value="'+esc(p.offerPrice||'')+'" placeholder="\u2014" oninput="changeOffer(\''+p.uid+'\',this.value)" style="width:70px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;font-weight:600;color:#047857;outline:none;font-family:inherit;text-align:right"><span id="dot_'+p.uid+'_offer_price" class="save-dot '+(saveStatus[p.uid+'_offer_price']||'')+'"></span></td>';
+    } else {
+      h += '<td style="font-weight:600;color:#047857">'+(p.offerPrice||"\u2014")+'</td>';
+    }
 
-    // Comment cells
+    // Comments
     const commentFields = [
       {key:"closureTeamComments", db:"closure_team_comments", tsKey:"closureTeamCommentsAt"},
       {key:"rahoolComments", db:"rahool_comments", tsKey:"rahoolCommentsAt"},
@@ -489,11 +553,16 @@ function _render() {
       const dotKey = p.uid + "_" + cf.db;
       const ts = timeAgo(p[cf.tsKey]);
       h += '<td onclick="event.stopPropagation()">';
-      h += '<textarea class="comment-input" placeholder="\u2014" oninput="changeComment(\''+p.uid+"','"+cf.db+"','"+cf.key+'\',this.value)">'+esc(p[cf.key]||"")+'</textarea>';
-      h += '<div style="display:flex;align-items:center;gap:3px;margin-top:2px">';
-      h += '<span id="dot_'+dotKey+'" class="save-dot '+(saveStatus[dotKey]||'')+'"></span>';
-      if (ts) h += '<span style="font-size:9px;color:#9ca3af">'+ts+'</span>';
-      h += '</div>';
+      if (canEdit()) {
+        h += '<textarea class="comment-input" placeholder="\u2014" oninput="changeComment(\''+p.uid+"','"+cf.db+"','"+cf.key+'\',this.value)">'+esc(p[cf.key]||"")+'</textarea>';
+        h += '<div style="display:flex;align-items:center;gap:3px;margin-top:2px">';
+        h += '<span id="dot_'+dotKey+'" class="save-dot '+(saveStatus[dotKey]||'')+'"></span>';
+        if (ts) h += '<span style="font-size:9px;color:#9ca3af">'+ts+'</span>';
+        h += '</div>';
+      } else {
+        h += '<div style="font-size:11px;color:#374151;max-width:160px">'+esc(p[cf.key]||"\u2014")+'</div>';
+        if (ts) h += '<div style="font-size:9px;color:#9ca3af">'+ts+'</div>';
+      }
       h += '</td>';
     });
 
@@ -542,6 +611,11 @@ function _render() {
         h += '</div>';
       } else {
         h += '<div style="font-size:11px;color:#9ca3af;font-style:italic">Visit not completed \u2014 no images available</div>';
+      }
+
+      // Edit button (admin only)
+      if (currentUser && currentUser.role === 'admin' && !p.isLegacy) {
+        h += '<div style="margin-top:12px;border-top:1px solid #e5e7eb;padding-top:10px"><button class="edit-btn" onclick="event.stopPropagation();openEditProperty(\''+p.uid+'\')">&#9998; Edit Property</button></div>';
       }
 
       h += '</div></td></tr>';
@@ -630,7 +704,7 @@ function renderOverlays() {
       h += '<div class="admin-section"><h3>Add User</h3>';
       h += '<div class="admin-add">';
       h += '<input id="addEmail" placeholder="email@openhouse.in">';
-      h += '<select id="addRole"><option value="viewer">Viewer</option><option value="admin">Admin</option></select>';
+      h += '<select id="addRole"><option value="viewer">Viewer</option><option value="commenter">Commenter</option><option value="admin">Admin</option></select>';
       h += '<button onclick="addUser()">Add User</button>';
       h += '</div></div>';
 
@@ -651,11 +725,17 @@ function renderOverlays() {
       }
 
       h += '<div class="admin-section"><h3>Current Users ('+adminUsers.length+')</h3>';
+      h += '<div style="font-size:10px;color:#6b7280;margin-bottom:6px">Viewer = read only &middot; Commenter = can edit comments, status, offer &middot; Admin = full access</div>';
       h += '<div class="admin-list">';
       adminUsers.forEach(u => {
         h += '<div class="admin-row">';
-        h += '<div><span class="email">'+esc(u.email)+'</span><span class="role'+(u.role==='admin'?' admin':'')+'">'+u.role+'</span></div>';
-        h += '<button onclick="removeUser(\''+esc(u.email)+'\')">Remove</button>';
+        h += '<div style="flex:1"><span class="email">'+esc(u.email)+'</span></div>';
+        h += '<select class="role-select" onchange="changeUserRole(\''+esc(u.email)+'\',this.value)">';
+        ["viewer","commenter","admin"].forEach(r => {
+          h += '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+r+'</option>';
+        });
+        h += '</select>';
+        h += '<button onclick="removeUser(\''+esc(u.email)+'\')" style="margin-left:6px">Remove</button>';
         h += '</div>';
       });
       h += '</div></div>';
@@ -770,11 +850,176 @@ function renderOverlays() {
     h += '</div></div></div>';
   }
 
+  // Edit Property Modal
+  if (editingProperty) {
+    var ep = editingProperty;
+    var pocNames = [...new Set(DATA.map(function(p){return p.assignedBy}).filter(Boolean))].sort();
+    var execNames = [...new Set(DATA.map(function(p){return p.fieldExec}).filter(Boolean))].sort();
+    h += '<div class="edit-overlay" onclick="if(event.target===this)closeEditProperty()">';
+    h += '<div class="edit-modal">';
+    h += '<div class="edit-header"><h2>Edit Property: '+esc(ep.society)+' - '+esc(ep.unitNo)+'</h2><button class="admin-close" onclick="closeEditProperty()">&times;</button></div>';
+    h += '<div class="edit-body">';
+    h += '<div class="edit-grid">';
+
+    // Property fields
+    h += ef("Society","ep_society",ep.society);
+    h += ef("Location","ep_locality",ep.locality);
+    h += ef("Tower","ep_towerNo",ep.towerNo);
+    h += ef("Unit No.","ep_unitNo",ep.unitNo);
+    h += ef("Configuration","ep_configuration",ep.configuration);
+    h += ef("Ask Price (Lakhs)","ep_demandPrice",ep.demandPrice);
+    h += ef("Area (Sqft)","ep_areaSqft",ep.areaSqft);
+    h += ef("Floor","ep_floor",ep.floor);
+    h += ef("Source","ep_source",ep.source);
+    h += ef("Owner First Name","ep_firstName",ep.ownerName ? ep.ownerName.split(" ")[0] : "");
+    h += ef("Owner Last Name","ep_lastName",ep.ownerName ? ep.ownerName.split(" ").slice(1).join(" ") : "");
+    h += ef("Contact No.","ep_contactNo",ep.contactNo);
+    h += ef("Exit Facing","ep_exitFacing",ep.exitFacing);
+    h += ef("Bathrooms","ep_bathrooms",ep.bathrooms);
+    h += ef("Balconies","ep_balconies",ep.balconies);
+    h += ef("Parking","ep_parking",ep.parking);
+    h += ef("Furnishing","ep_furnishing",ep.furnishing);
+    h += ef("Registry Status","ep_registryStatus",ep.registryStatus);
+    h += ef("Occupancy","ep_occupancyStatus",ep.occupancyStatus);
+    h += ef("GSP (Lakhs)","ep_guaranteedSalePrice",ep.guaranteedSalePrice);
+    h += ef("Perf. Guarantee","ep_performanceGuarantee",ep.performanceGuarantee);
+    h += ef("Initial Period (days)","ep_initialPeriod",ep.initialPeriod);
+    h += ef("Grace Period (days)","ep_gracePeriod",ep.gracePeriod);
+    h += ef("Outstanding Loan","ep_outstandingLoan",ep.outstandingLoan);
+    h += ef("Bank (Loan)","ep_bankNameLoan",ep.bankNameLoan);
+    h += ef("Video/Photos Link","ep_videoLink",ep.videoLink);
+
+    // POC dropdown
+    h += '<div class="edit-field"><label>POC (Assigned By)</label>';
+    h += '<select id="ep_assignedBy"><option value="">—</option>';
+    pocNames.forEach(function(n){ h += '<option value="'+esc(n)+'"'+(ep.assignedBy===n?' selected':'')+'>'+esc(n)+'</option>'; });
+    h += '</select></div>';
+
+    // Field Exec dropdown
+    h += '<div class="edit-field"><label>Field Exec</label>';
+    h += '<select id="ep_fieldExec"><option value="">—</option>';
+    execNames.forEach(function(n){ h += '<option value="'+esc(n)+'"'+(ep.fieldExec===n?' selected':'')+'>'+esc(n)+'</option>'; });
+    h += '</select></div>';
+
+    h += '</div>'; // close edit-grid
+
+    // Image upload
+    h += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #e5e7eb">';
+    h += '<div class="edit-field"><label>Exit Compass Image URL</label>';
+    h += '<input id="ep_exitCompassImage" value="'+esc(ep.exitCompassImage||'')+'"></div>';
+    h += '</div>';
+
+    h += '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;padding-top:12px;border-top:1px solid #e5e7eb">';
+    h += '<button onclick="closeEditProperty()" style="padding:8px 20px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer">Cancel</button>';
+    h += '<button class="edit-save" id="editSaveBtn" onclick="saveEditProperty()">Save Changes</button>';
+    h += '</div>';
+
+    h += '</div></div></div>';
+  }
+
   document.getElementById("overlays").innerHTML = h;
 }
 
 // ── Event Handlers ──
 function toggleTab(s) { state.statusFilter = state.statusFilter === s ? "All" : s; state.page = 1; render(); }
+
+function toggleSort(col) {
+  if (state.sortCol === col) {
+    state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+  } else {
+    state.sortCol = col;
+    state.sortDir = "asc";
+  }
+  state.page = 1;
+  render();
+}
+
+// Edit field helper for modal
+function ef(label, id, value) {
+  return '<div class="edit-field"><label>'+label+'</label><input id="'+id+'" value="'+esc(value||'')+'"></div>';
+}
+
+function openEditProperty(uid) {
+  var p = DATA.find(function(d){ return d.uid === uid; });
+  if (!p) return;
+  editingProperty = Object.assign({}, p);
+  renderOverlays();
+}
+
+function closeEditProperty() {
+  editingProperty = null;
+  renderOverlays();
+}
+
+async function saveEditProperty() {
+  if (!editingProperty) return;
+  var btn = document.getElementById("editSaveBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
+
+  var updates = {
+    society_name: document.getElementById("ep_society").value,
+    locality: document.getElementById("ep_locality").value,
+    tower_no: document.getElementById("ep_towerNo").value,
+    unit_no: document.getElementById("ep_unitNo").value,
+    configuration: document.getElementById("ep_configuration").value,
+    demand_price: document.getElementById("ep_demandPrice").value,
+    area_sqft: document.getElementById("ep_areaSqft").value,
+    floor: document.getElementById("ep_floor").value,
+    source: document.getElementById("ep_source").value,
+    first_name: document.getElementById("ep_firstName").value,
+    last_name: document.getElementById("ep_lastName").value,
+    contact_no: document.getElementById("ep_contactNo").value,
+    exit_facing: document.getElementById("ep_exitFacing").value,
+    bathrooms: document.getElementById("ep_bathrooms").value,
+    balconies: document.getElementById("ep_balconies").value,
+    parking: document.getElementById("ep_parking").value,
+    furnishing: document.getElementById("ep_furnishing").value,
+    registry_status: document.getElementById("ep_registryStatus").value,
+    occupancy_status: document.getElementById("ep_occupancyStatus").value,
+    guaranteed_sale_price: document.getElementById("ep_guaranteedSalePrice").value,
+    performance_guarantee: document.getElementById("ep_performanceGuarantee").value,
+    initial_period: document.getElementById("ep_initialPeriod").value,
+    grace_period: document.getElementById("ep_gracePeriod").value,
+    outstanding_loan: document.getElementById("ep_outstandingLoan").value,
+    bank_name_loan: document.getElementById("ep_bankNameLoan").value,
+    video_link: document.getElementById("ep_videoLink").value,
+    assigned_by: document.getElementById("ep_assignedBy").value,
+    field_exec: document.getElementById("ep_fieldExec").value,
+    exit_compass_image: document.getElementById("ep_exitCompassImage").value,
+  };
+
+  try {
+    var res = await fetch("/api/admin/edit-property", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid: editingProperty.uid, updates: updates })
+    });
+    if (res.ok) {
+      editingProperty = null;
+      renderOverlays();
+      await fetchProperties();
+      normalizePocNames();
+      render();
+    } else {
+      var err = await res.json().catch(function(){ return {}; });
+      alert("Save failed: " + (err.error || "Unknown error"));
+      if (btn) { btn.disabled = false; btn.textContent = "Save Changes"; }
+    }
+  } catch(e) {
+    alert("Save failed: " + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "Save Changes"; }
+  }
+}
+
+async function changeUserRole(email, newRole) {
+  await fetch("/api/admin/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email, role: newRole })
+  });
+  await loadUsers();
+  renderOverlays();
+}
 let searchTimer = null;
 function updateSearch(v) {
   state.search = v;
