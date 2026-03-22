@@ -364,7 +364,7 @@ function getFiltered() {
     }
     if (state.search) {
       const s = state.search.toLowerCase();
-      return [p.uid,p.society,p.ownerName,p.towerNo,p.unitNo,p.fieldExec,p.locality,p.contactNo].some(v => (v||"").toLowerCase().includes(s));
+      return [p.uid,p.society,p.city,p.ownerName,p.towerNo,p.unitNo,p.fieldExec,p.locality,p.contactNo].some(v => (v||"").toLowerCase().includes(s));
     }
     return true;
   });
@@ -469,7 +469,7 @@ function _render() {
   // Table
   h += '<div id="tableWrap" style="flex:1;overflow:auto"><table><thead><tr>';
   var COLS = [
-    {hdr:"Society",key:"society"},{hdr:"Location",key:"locality"},{hdr:"Tower",key:"towerNo"},{hdr:"Unit No.",key:"unitNo"},{hdr:"Config",key:"configuration"},{hdr:"Ask (in Lakhs)",key:"demandPrice"},{hdr:"Area (in Sqft)",key:"areaSqft"},{hdr:"Floor",key:"floor"},{hdr:"Source",key:"source"},{hdr:"Name",key:"ownerName"},{hdr:"Phone",key:"contactNo"},{hdr:"Status",key:null},{hdr:"Exit Facing",key:"exitFacing"},{hdr:"Balcony View",key:null},{hdr:"POC",key:"assignedBy"},{hdr:"Offer Price",key:null},{hdr:"Closure Team Comments",key:null},{hdr:"Rahool Comments",key:null},{hdr:"Prashant Comments",key:null},{hdr:"Demand Team Comments",key:null}
+    {hdr:"Society",key:"society"},{hdr:"City",key:"city"},{hdr:"Location",key:"locality"},{hdr:"Tower",key:"towerNo"},{hdr:"Unit No.",key:"unitNo"},{hdr:"Config",key:"configuration"},{hdr:"Ask (in Lakhs)",key:"demandPrice"},{hdr:"Area (in Sqft)",key:"areaSqft"},{hdr:"Floor",key:"floor"},{hdr:"Source",key:"source"},{hdr:"Name",key:"ownerName"},{hdr:"Phone",key:"contactNo"},{hdr:"Status",key:null},{hdr:"Exit Facing",key:"exitFacing"},{hdr:"Balcony View",key:null},{hdr:"POC",key:"assignedBy"},{hdr:"Offer Price",key:null},{hdr:"Closure Team Comments",key:null},{hdr:"Rahool Comments",key:null},{hdr:"Prashant Comments",key:null},{hdr:"Demand Team Comments",key:null}
   ];
   COLS.forEach(function(col,i) {
     var sortable = col.key ? ' class="sortable" onclick="toggleSort(\''+col.key+'\')"' : '';
@@ -479,7 +479,7 @@ function _render() {
     } else if (col.key) {
       icon = ' <span class="sort-icon">\u25B2</span>';
     }
-    h += '<th'+sortable+(i>=16?' style="min-width:150px'+(col.key?';cursor:pointer':'')+'"':col.key?'':'')+'>'+col.hdr+icon+'</th>';
+    h += '<th'+sortable+(i>=17?' style="min-width:150px'+(col.key?';cursor:pointer':'')+'"':col.key?'':'')+'>'+col.hdr+icon+'</th>';
   });
   h += '</tr></thead><tbody>';
 
@@ -494,6 +494,7 @@ function _render() {
 
     h += '<tr class="datarow'+(isExp?' expanded':'')+'" onclick="toggleExpand(\''+p.uid+'\')">';
     h += '<td class="society-cell">'+esc(p.society)+'</td>';
+    h += '<td>'+esc(p.city||"\u2014")+'</td>';
     h += '<td>'+esc(p.locality)+'</td>';
     h += '<td>'+(p.towerNo||"\u2014")+'</td>';
     h += '<td class="unit-cell">'+(p.unitNo||"\u2014")+'</td>';
@@ -557,7 +558,7 @@ function _render() {
     // Expanded row
     if (isExp) {
       try {
-      h += '<tr class="expand-row"><td colspan="20"><div class="expand-content">';
+      h += '<tr class="expand-row"><td colspan="21"><div class="expand-content">';
       h += '<div class="detail-tags">';
       const rate = getRatePerSqft(p);
       if (rate) h += '<span>Rate/sqft: <b>\u20B9'+rate+'</b></span>';
@@ -579,7 +580,9 @@ function _render() {
 
       // POC edit (admin only, not legacy)
       if (currentUser && currentUser.role === 'admin') {
-        var pocNames = [...new Set(DATA.map(function(d){return d.assignedBy}).filter(Boolean))].sort();
+        var pocFromData = DATA.map(function(d){return d.assignedBy}).filter(Boolean);
+        var pocFromTeam = adminTeam.map(function(t){return t.display_name}).filter(Boolean);
+        var pocNames = [...new Set([...pocFromData, ...pocFromTeam])].sort();
         h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px" onclick="event.stopPropagation()">';
         h += '<span style="font-size:12px;font-weight:600;color:#0369a1">Change POC:</span>';
         h += '<select onchange="changePoc(\''+p.uid+'\',this.value)" style="padding:4px 8px;font-size:12px;border:1px solid #93c5fd;border-radius:4px;outline:none">';
@@ -614,7 +617,7 @@ function _render() {
 
       h += '</div></td></tr>';
       } catch(expandErr) {
-        h += '<tr class="expand-row"><td colspan="20" style="padding:12px 20px;color:#ef4444;font-size:12px">Error loading details: '+esc(expandErr.message)+'</td></tr>';
+        h += '<tr class="expand-row"><td colspan="21" style="padding:12px 20px;color:#ef4444;font-size:12px">Error loading details: '+esc(expandErr.message)+'</td></tr>';
         console.error("Expand error for "+p.uid+":", expandErr);
       }
     }
