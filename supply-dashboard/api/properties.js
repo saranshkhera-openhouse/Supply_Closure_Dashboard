@@ -1,6 +1,47 @@
 const { getDB } = require("./_db");
 const { requireAuth } = require("./_auth");
-const legacyData = require("./_legacy.json");
+
+// ── Legacy data from Google Sheet (cached in memory) ──
+let legacyCache = { data: [], fetchedAt: 0 };
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function getLegacyData() {
+  const now = Date.now();
+  // Return cache if fresh
+  if (legacyCache.data.length > 0 && (now - legacyCache.fetchedAt) < CACHE_TTL) {
+    return legacyCache.data;
+  }
+
+  const sheetUrl = process.env.LEGACY_SHEET_URL;
+  if (!sheetUrl) {
+    // Fallback: try loading JSON file if it exists
+    try { return require("./_legacy.json"); } catch { return []; }
+  }
+
+  try {
+    const res = await fetch(sheetUrl);
+    if (!res.ok) throw new Error("Sheet fetch failed: " + res.status);
+    const rows = await res.json();
+
+    // Normalize: ensure arrays and boolean fields
+    const normalized = rows.map(r => ({
+      ...r,
+      isLegacy: true,
+      balconyDetails: parseJson(r.balconyDetails),
+      documentsAvailable: parseJson(r.documentsAvailable),
+      furnishingDetails: parseJson(r.furnishingDetails),
+    }));
+
+    legacyCache = { data: normalized, fetchedAt: now };
+    console.log("Legacy sheet: loaded " + normalized.length + " rows");
+    return normalized;
+  } catch (err) {
+    console.error("Legacy sheet fetch error:", err.message);
+    // Return stale cache if available, else try JSON fallback
+    if (legacyCache.data.length > 0) return legacyCache.data;
+    try { return require("./_legacy.json"); } catch { return []; }
+  }
+}
 
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -40,7 +81,8 @@ module.exports = async function handler(req, res) {
 
     const liveProperties = rows.map(transformRow);
 
-    // Step 2: Load legacy edits from DB and apply to CSV data
+    // Step 2: Load legacy data from Google Sheet + apply edits from DB
+    const legacyData = await getLegacyData();
     let legacyWithEdits = legacyData.map(r => ({...r})); // shallow copy
     try {
       const edits = await sql`SELECT uid, field, value, updated_at FROM legacy_edits`;
