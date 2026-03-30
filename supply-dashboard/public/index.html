@@ -572,7 +572,9 @@ function _render() {
   h += '<span style="font-size:10px;color:#9ca3af;margin-left:auto">'+filtered.length+' results &middot; Page '+state.page+'/'+Math.max(totalPages,1)+'</span>';
   h += '<span id="lastUpdated" style="font-size:9px;color:#d1d5db">'+(lastRefreshed ? lastRefreshed : '')+'</span>';
   h += '<button onclick="refreshData()" style="padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;border:1px solid #e5e7eb;background:#f9fafb;color:#6b7280;transition:all 0.15s">&#x21bb;</button>';
-  h += '<button onclick="downloadCSV()" style="padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;border:1px solid #e5e7eb;background:#f9fafb;color:#6b7280;transition:all 0.15s" title="Download CSV">&#x2913; CSV</button>';
+  if (currentUser && currentUser.role === 'admin') {
+    h += '<button onclick="downloadCSV()" style="padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;border:1px solid #e5e7eb;background:#f9fafb;color:#6b7280;transition:all 0.15s" title="Download CSV">&#x2913; CSV</button>';
+  }
   h += '</div>';
 
   // Table
