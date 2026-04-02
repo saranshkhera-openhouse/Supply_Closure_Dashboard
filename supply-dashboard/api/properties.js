@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
         prashant_comments, demand_team_comments,
         closure_team_comments_at, rahool_comments_at,
         prashant_comments_at, demand_team_comments_at,
-        keys_handover_date
+        key_handover_date
       FROM properties
       WHERE (is_dead IS NULL OR is_dead = false)
       ORDER BY created_at DESC
@@ -327,6 +327,6 @@ function transformRow(r) {
     rahoolCommentsAt: r.rahool_comments_at || "",
     prashantCommentsAt: r.prashant_comments_at || "",
     demandTeamCommentsAt: r.demand_team_comments_at || "",
-    keysHandoverDate: r.keys_handover_date || "",
+    keysHandoverDate: r.key_handover_date || "",
   };
 }
