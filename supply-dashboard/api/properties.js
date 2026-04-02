@@ -197,7 +197,7 @@ module.exports = async function handler(req, res) {
 
     // Email → POC display names
     const EMAIL_TO_NAMES = {
-      'sahaj.dureja@openhouse.in': ['Sahaj Dureja'],
+      'sahaj.dureja@openhouse.in': ['Test Sahaj'],
       'saransh.khera@openhouse.in': ['Saransh Khera'],
       'ashish@openhouse.in': ['Ashish'],
       'sushmita.roy@openhouse.in': ['Sushmita Roy'],
