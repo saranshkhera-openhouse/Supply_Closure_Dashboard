@@ -166,29 +166,68 @@ module.exports = async function handler(req, res) {
       console.error("team_directory query failed:", teamErr.message);
     }
 
-    // Step 5: Normalize names (first-name-only → full name from team_directory)
-    if (teamRows.length > 0) {
-      const nameMap = {}; // lowercase first name → full display_name
-      teamRows.forEach(t => {
-        const full = (t.display_name || "").trim();
-        const first = full.split(" ")[0].toLowerCase();
-        if (first && full.includes(" ")) {
-          nameMap[first] = full;
-        }
-      });
-      allProperties.forEach(p => {
-        // Normalize assignedBy (POC)
-        if (p.assignedBy) {
-          const lower = p.assignedBy.trim().toLowerCase();
-          if (nameMap[lower]) p.assignedBy = nameMap[lower];
-        }
-        // Normalize fieldExec
-        if (p.fieldExec) {
-          const lower = p.fieldExec.trim().toLowerCase();
-          if (nameMap[lower]) p.fieldExec = nameMap[lower];
-        }
-      });
+    // Step 5: Normalize POC names (must match client-side POC_NAME_MAP exactly)
+    const POC_NAME_MAP = {
+      "abhishek": "Abhishek Rathore",
+      "animesh": "Animesh Singh",
+      "apurv": "Apurv Nath",
+      "apurva": "Apurv Nath",
+      "nishant": "Nishant Kumar",
+      "rahulsheel": "Rahul Sheel",
+      "rupali": "Rupali Prasad",
+      "shashank": "Shashank Kumar",
+      "sushmita": "Sushmita Roy",
+      "kavita": "Kavita Rawat",
+      "arti": "Arti Ahirwar",
+      "sahil": "Sahil Singh",
+      "nisha": "Nisha Deewan",
+      "praveen": "Praveen Kumar",
+      "aman": "Aman Dixit",
+      "sahaj": "Sahaj Dureja",
+      "saransh": "Saransh Khera",
+      "saurabh": "Saurabh",
+      "prashant": "Prashant",
+      "rahool": "Rahool",
+      "ashish": "Ashish",
+      "ankit": "Ankit",
+      "vaibhav": "Vaibhav Dwivedi",
+      "deepak": "Deepak Mishra",
+      "ashwani": "Ashwani Sharma",
+    };
+    const POC_REMOVE = ["oh sold", "oh_sold"];
+
+    function cleanPoc(name) {
+      if (!name) return "";
+      const trimmed = name.trim();
+      if (POC_REMOVE.includes(trimmed.toLowerCase())) return "";
+      // Handle "Shashank / Rupali" → normalize each part
+      if (trimmed.includes("/")) {
+        return trimmed.split("/").map(s => {
+          const k = s.trim().toLowerCase().replace(/\s+/g, "");
+          return POC_NAME_MAP[k] || s.trim();
+        }).join(" / ");
+      }
+      // Try no-space match (catches "RahulSheel" → "rahulsheel")
+      const noSpace = trimmed.toLowerCase().replace(/\s+/g, "");
+      if (POC_NAME_MAP[noSpace]) return POC_NAME_MAP[noSpace];
+      // Try lowercase match
+      const lower = trimmed.toLowerCase();
+      if (POC_NAME_MAP[lower]) return POC_NAME_MAP[lower];
+      // Try team_directory first-name match as fallback
+      if (teamRows.length > 0) {
+        const match = teamRows.find(t => {
+          const full = (t.display_name || "").trim();
+          return full.split(" ")[0].toLowerCase() === lower && full.includes(" ");
+        });
+        if (match) return match.display_name.trim();
+      }
+      return trimmed;
     }
+
+    allProperties.forEach(p => {
+      if (p.assignedBy) p.assignedBy = cleanPoc(p.assignedBy);
+      if (p.fieldExec) p.fieldExec = cleanPoc(p.fieldExec);
+    });
 
     // Step 6: Apply visibility filtering using email → POC name mapping
     if (user.role === "admin") {
@@ -241,8 +280,12 @@ module.exports = async function handler(req, res) {
 
     const filtered = allProperties.filter(r => {
       const poc = (r.assignedBy || "").toLowerCase();
-      if (!poc) return false;
-      return visibleNames.some(name => poc === name);
+      const exec = (r.fieldExec || "").toLowerCase();
+      // Match against POC or field exec
+      return visibleNames.some(name =>
+        (poc && (poc === name || poc.includes(name))) ||
+        (exec && (exec === name || exec.includes(name)))
+      );
     });
 
     return res.status(200).json(filtered);
