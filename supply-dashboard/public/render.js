@@ -23,7 +23,7 @@ function _render() {
 
   // Header
   h += '<div class="header">';
-  h += '<div style="display:flex;align-items:center;gap:10px"><div class="logo">OH</div><div><div style="font-size:16px;font-weight:700">Supply Closure Tracker</div><div style="font-size:11px;color:#6b7280">All Cities &middot; '+DATA.length+' Properties</div></div></div>';
+  h += '<div style="display:flex;align-items:center;gap:10px"><img src="/logo.png" class="logo" alt="OH"><div><div style="font-size:16px;font-weight:700">Supply Closure Tracker</div><div style="font-size:11px;color:#6b7280">All Cities &middot; '+DATA.length+' Properties</div></div></div>';
   h += '<div style="display:flex;align-items:center;gap:12px">';
   h += '<div class="tabs">';
   tabStatuses.forEach(s => {
