@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
         prashant_comments, demand_team_comments,
         closure_team_comments_at, rahool_comments_at,
         prashant_comments_at, demand_team_comments_at,
-        key_handover_date
+        keys_handover_date
       FROM properties
       WHERE (is_dead IS NULL OR is_dead = false)
       ORDER BY created_at DESC
@@ -190,45 +190,62 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Step 6: Apply visibility filtering
+    // Step 6: Apply visibility filtering using email → POC name mapping
     if (user.role === "admin") {
       return res.status(200).json(allProperties);
     }
 
-    // Non-admins: filter by team directory
-    if (teamRows.length === 0) {
-      return res.status(200).json(allProperties);
-    }
+    // Email → POC display names
+    const EMAIL_TO_NAMES = {
+      'sahaj.dureja@openhouse.in': ['Sahaj Dureja'],
+      'saransh.khera@openhouse.in': ['Saransh Khera'],
+      'ashish@openhouse.in': ['Ashish'],
+      'sushmita.roy@openhouse.in': ['Sushmita Roy'],
+      'arti.ahirwar@openhouse.in': ['Arti Ahirwar'],
+      'abhishek.rathore@openhouse.in': ['Abhishek Rathore'],
+      'animesh.singh@openhouse.in': ['Animesh Singh'],
+      'kavita.rawat@openhouse.in': ['Kavita Rawat'],
+      'prashant@openhouse.in': ['Prashant'],
+      'rahool@openhouse.in': ['Rahool'],
+      'rupali.prasad@openhouse.in': ['Rupali Prasad'],
+      'saurabh@openhouse.in': ['Saurabh'],
+      'shashank.kumar@openhouse.in': ['Shashank Kumar'],
+      'sahil.singh@openhouse.in': ['Sahil Singh'],
+      'rahul.sheel@openhouse.in': ['Rahul Sheel'],
+      'rahul.singh@openhouse.in': ['Rahul Singh'],
+      'praveen.kumar@openhouse.in': ['Praveen Kumar'],
+      'nishant.kumar@openhouse.in': ['Nishant Kumar'],
+      'ankit@openhouse.in': ['Ankit'],
+      'vaibhav.dwivedi@openhouse.in': ['Vaibhav Dwivedi'],
+      'aman.dixit@openhouse.in': ['Aman Dixit'],
+      'deepak.mishra@openhoue.in': ['Deepak Mishra'],
+      'nisha.deewan@openhouse.in': ['Nisha Deewan'],
+      'ashwani.sharma@openhouse.in': ['Ashwani Sharma'],
+      'deepak.rana@openhoue.in': ['Deepak Rana'],
+    };
+
+    // Manager email → team member display names they can also see
+    const TEAMS = {
+      'abhishek.rathore@openhouse.in': ['Aman Dixit','Arti Ahirwar','Kavita Rawat','Sahil Singh'],
+      'animesh.singh@openhouse.in': ['Nishant Kumar','Rahul Sheel','Sushmita Roy'],
+      'ashish@openhouse.in': ['Aman Dixit','Sahil Singh'],
+    };
 
     const userEmail = user.email.toLowerCase();
 
-    const myNames = teamRows
-      .filter(t => (t.email || "").toLowerCase() === userEmail)
-      .map(t => (t.display_name || "").toLowerCase());
-
-    const reporteeNames = teamRows
-      .filter(t => (t.manager_email || "").toLowerCase() === userEmail)
-      .map(t => (t.display_name || "").toLowerCase());
-
-    const visibleNames = [...new Set([...myNames, ...reporteeNames])];
+    // Build list of POC names this user can see
+    const myNames = (EMAIL_TO_NAMES[userEmail] || []).map(n => n.toLowerCase());
+    const teamNames = (TEAMS[userEmail] || []).map(n => n.toLowerCase());
+    const visibleNames = [...new Set([...myNames, ...teamNames])];
 
     if (visibleNames.length === 0) {
       return res.status(200).json([]);
     }
 
     const filtered = allProperties.filter(r => {
-      const assignedBy = (r.assignedBy || "").toLowerCase();
-      const fieldExec = (r.fieldExec || "").toLowerCase();
-      const tokenBy = (r.tokenRequestedBy || "").toLowerCase();
-
-      return visibleNames.some(name =>
-        assignedBy.includes(name) ||
-        fieldExec.includes(name) ||
-        tokenBy.includes(name) ||
-        (name.includes(assignedBy) && assignedBy.length > 2) ||
-        (name.includes(fieldExec) && fieldExec.length > 2) ||
-        (name.includes(tokenBy) && tokenBy.length > 2)
-      );
+      const poc = (r.assignedBy || "").toLowerCase();
+      if (!poc) return false;
+      return visibleNames.some(name => poc === name);
     });
 
     return res.status(200).json(filtered);
@@ -310,6 +327,6 @@ function transformRow(r) {
     rahoolCommentsAt: r.rahool_comments_at || "",
     prashantCommentsAt: r.prashant_comments_at || "",
     demandTeamCommentsAt: r.demand_team_comments_at || "",
-    keysHandoverDate: r.key_handover_date || "",
+    keysHandoverDate: r.keys_handover_date || "",
   };
 }

@@ -3,7 +3,7 @@ const { requireAdmin } = require("../_auth");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, PATCH, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
 
@@ -53,6 +53,16 @@ module.exports = async function handler(req, res) {
 
     await sql`DELETE FROM dashboard_users WHERE LOWER(email) = ${email.toLowerCase()}`;
     return res.status(200).json({ success: true });
+  }
+
+  // PATCH - force logout all users
+  if (req.method === "PATCH") {
+    const { action } = req.body;
+    if (action === "force_logout_all") {
+      await sql`UPDATE dashboard_users SET force_logout_at = NOW()`;
+      return res.status(200).json({ success: true, message: "All users will be logged out on next request" });
+    }
+    return res.status(400).json({ error: "Unknown action" });
   }
 
   return res.status(405).json({ error: "Method not allowed" });

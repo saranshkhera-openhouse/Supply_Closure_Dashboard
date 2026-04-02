@@ -845,6 +845,13 @@ function renderOverlays() {
       });
       h += '</div></div>';
 
+      // Force logout
+      h += '<div class="admin-section" style="border-top:2px solid #fecaca;padding-top:12px">';
+      h += '<h3 style="color:#dc2626">Security</h3>';
+      h += '<button onclick="forceLogoutAll()" style="padding:6px 14px;font-size:11px;background:#dc2626;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:500">Force Logout All Users</button>';
+      h += '<div style="font-size:10px;color:#9ca3af;margin-top:4px">Invalidates all sessions. Everyone (including you) must log in again.</div>';
+      h += '</div>';
+
     } else if (adminTab === 'team') {
       h += '<div class="admin-section"><h3>Add Team Member</h3>';
       h += '<div style="font-size:11px;color:#6b7280;margin-bottom:8px">Display name must exactly match names in assigned_by / field_exec columns</div>';
@@ -1005,6 +1012,25 @@ async function changeUserRole(email, newRole) {
   });
   await loadUsers();
   renderOverlays();
+}
+
+async function forceLogoutAll() {
+  if (!confirm("This will log out ALL users (including you). Everyone must log in again. Continue?")) return;
+  try {
+    const res = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "force_logout_all" })
+    });
+    if (res.ok) {
+      alert("All sessions invalidated. You will be redirected to login.");
+      window.location.href = "/login.html";
+    } else {
+      alert("Failed to force logout");
+    }
+  } catch(e) {
+    alert("Error: " + e.message);
+  }
 }
 let searchTimer = null;
 function updateSearch(v) {
@@ -1347,6 +1373,7 @@ async function silentRefresh() {
 
   try {
     const res = await fetch("/api/properties");
+    if (res.status === 401) { window.location.href = "/login.html"; return; }
     if (!res.ok) return;
     const newData = await res.json();
     newData.forEach(p => {
