@@ -26,6 +26,19 @@ function clearMs(key) {
   render();
 }
 
+function clearAllFilters() {
+  state.search = "";
+  state.cityFilter = "All";
+  state.statusFilter = [];
+  state.pocFilter = [];
+  state.sourceFilter = "All";
+  state.sortCol = null;
+  state.sortDir = "asc";
+  state.page = 1;
+  state.msOpen = null;
+  render();
+}
+
 function toggleSort(col) {
   if (state.sortCol === col) {
     state.sortDir = state.sortDir === "asc" ? "desc" : "asc";

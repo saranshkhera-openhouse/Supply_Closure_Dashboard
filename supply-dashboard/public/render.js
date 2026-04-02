@@ -90,6 +90,10 @@ function _render() {
   }
   h += '</div>';
   h += '<select onchange="updateFilter(\'sourceFilter\',this.value)"><option value="All">All Sources</option><option value="CP"'+(state.sourceFilter==="CP"?' selected':'')+'>CP</option><option value="Direct"'+(state.sourceFilter==="Direct"?' selected':'')+'>Direct</option></select>';
+  var hasFilters = state.search || state.cityFilter !== "All" || state.statusFilter.length > 0 || state.pocFilter.length > 0 || state.sourceFilter !== "All" || state.sortCol;
+  if (hasFilters) {
+    h += '<button onclick="clearAllFilters()" style="padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;transition:all 0.15s;font-weight:500">&times; Clear</button>';
+  }
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   if (state.page > totalPages && totalPages > 0) state.page = totalPages;
   const pageStart = (state.page - 1) * PAGE_SIZE;
