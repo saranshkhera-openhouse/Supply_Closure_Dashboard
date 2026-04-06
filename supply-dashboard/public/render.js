@@ -214,10 +214,10 @@ function _render() {
       h += '<tr class="expand-row"><td colspan="' + colCount + '"><div class="expand-content">';
       h += '<div class="detail-tags">';
       const rate = getRatePerSqft(p);
-      if (rate) h += '<span>Rate/sqft: <b>\u20B9'+rate+'</b></span>';
-      if (p.fieldExec) h += '<span>Field Exec: <b>'+esc(p.fieldExec)+'</b></span>';
-      h += '<span>Visit: <b style="color:'+(p.visitSubmittedAt?'#059669':'#9ca3af')+'">'+(p.visitSubmittedAt?'Yes':'No')+'</b></span>';
-      if (p.balconyDetails && p.balconyDetails.length > 0) h += '<span>Photos: <b style="color:#2563eb">'+p.balconyDetails.length+'</b></span>';
+      if (rate && !isDemand) h += '<span>Rate/sqft: <b>\u20B9'+rate+'</b></span>';
+      if (p.fieldExec && !isDemand) h += '<span>Field Exec: <b>'+esc(p.fieldExec)+'</b></span>';
+      if (!isDemand) h += '<span>Visit: <b style="color:'+(p.visitSubmittedAt?'#059669':'#9ca3af')+'">'+(p.visitSubmittedAt?'Yes':'No')+'</b></span>';
+      if (p.balconyDetails && p.balconyDetails.length > 0 && !isDemand) h += '<span>Photos: <b style="color:#2563eb">'+p.balconyDetails.length+'</b></span>';
       if (p.bathrooms) h += '<span>Toilets: <b>'+esc(p.bathrooms)+'</b></span>';
       if (p.balconies) h += '<span>Balconies: <b>'+esc(p.balconies)+'</b></span>';
       if (p.parking) h += '<span>Parking: <b>'+esc(p.parking)+'</b></span>';
@@ -314,4 +314,3 @@ function _render() {
   if (tw) { tw.scrollTop = scrollTop; tw.scrollLeft = scrollLeft; }
   renderOverlays();
 }
-
