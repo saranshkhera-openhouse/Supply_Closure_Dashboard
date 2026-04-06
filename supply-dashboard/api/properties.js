@@ -252,10 +252,10 @@ module.exports = async function handler(req, res) {
       'nishant.kumar@openhouse.in': ['Nishant Kumar'],
       'vaibhav.dwivedi@openhouse.in': ['Vaibhav Dwivedi'],
       'aman.dixit@openhouse.in': ['Aman Dixit'],
-      'deepak.mishra@openhoue.in': ['Deepak Mishra'],
+      'deepak.mishra@openhouse.in': ['Deepak Mishra'],
       'nisha.deewan@openhouse.in': ['Nisha Deewan'],
       'ashwani.sharma@openhouse.in': ['Ashwani Sharma'],
-      'deepak.rana@openhoue.in': ['Deepak Rana'],
+      'deepak.rana@openhouse.in': ['Deepak Rana'],
     };
 
     // Manager email → team member display names they can also see
