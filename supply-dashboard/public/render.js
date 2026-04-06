@@ -110,9 +110,13 @@ function _render() {
 
   // Table
   h += '<div id="tableWrap" style="flex:1;overflow:auto"><table><thead><tr>';
+  var isDemand = currentUser && currentUser.role === 'demand';
+  var DEMAND_HIDE = ["Ask (in Lakhs)","Name","Phone","Offer Price","Closure Team Comments","Rahool Comments","Prashant Comments"];
   var COLS = [
     {hdr:"Society",key:"society"},{hdr:"City",key:"city"},{hdr:"Location",key:"locality"},{hdr:"Tower",key:"towerNo"},{hdr:"Unit No.",key:"unitNo"},{hdr:"Config",key:"configuration"},{hdr:"Ask (in Lakhs)",key:"demandPrice"},{hdr:"Area (in Sqft)",key:"areaSqft"},{hdr:"Floor",key:"floor"},{hdr:"Source",key:"source"},{hdr:"Name",key:"ownerName"},{hdr:"Phone",key:"contactNo"},{hdr:"Status",key:null},{hdr:"Exit Facing",key:"exitFacing"},{hdr:"Balcony View",key:null},{hdr:"POC",key:"assignedBy"},{hdr:"Offer Price",key:null},{hdr:"Key Handover",key:"keysHandoverDate"},{hdr:"Closure Team Comments",key:null},{hdr:"Rahool Comments",key:null},{hdr:"Prashant Comments",key:null},{hdr:"Demand Team Comments",key:null}
   ];
+  if (isDemand) COLS = COLS.filter(function(c){ return DEMAND_HIDE.indexOf(c.hdr) === -1; });
+  var colCount = COLS.length;
   COLS.forEach(function(col,i) {
     var sortable = col.key ? ' class="sortable" onclick="toggleSort(\''+col.key+'\')"' : '';
     var icon = '';
@@ -121,7 +125,8 @@ function _render() {
     } else if (col.key) {
       icon = ' <span class="sort-icon">\u25B2</span>';
     }
-    h += '<th'+sortable+(i>=18?' style="min-width:150px'+(col.key?';cursor:pointer':'')+'"':col.key?'':'')+'>'+col.hdr+icon+'</th>';
+    var isComment = col.hdr.indexOf('Comments') >= 0;
+    h += '<th'+sortable+(isComment?' style="min-width:150px"':'')+'>'+col.hdr+icon+'</th>';
   });
   h += '</tr></thead><tbody>';
 
@@ -141,16 +146,16 @@ function _render() {
     h += '<td>'+(p.towerNo||"\u2014")+'</td>';
     h += '<td class="unit-cell">'+(p.unitNo||"\u2014")+'</td>';
     h += '<td>'+(p.configuration||"\u2014")+'</td>';
-    h += '<td class="ask-cell">'+(p.demandPrice||"\u2014")+'</td>';
+    if (!isDemand) h += '<td class="ask-cell">'+(p.demandPrice||"\u2014")+'</td>';
     h += '<td>'+(p.areaSqft||"\u2014")+'</td>';
     h += '<td style="text-align:center">'+(p.floor||"\u2014")+'</td>';
     h += '<td>'+esc(p.source)+'</td>';
-    h += '<td>'+esc(p.ownerName)+'</td>';
-    h += '<td style="font-size:11px;white-space:nowrap">'+(p.contactNo||"\u2014")+'</td>';
+    if (!isDemand) h += '<td>'+esc(p.ownerName)+'</td>';
+    if (!isDemand) h += '<td style="font-size:11px;white-space:nowrap">'+(p.contactNo||"\u2014")+'</td>';
 
     // Status
     h += '<td onclick="event.stopPropagation()">';
-    if (canEdit()) {
+    if (canEdit() && !isDemand) {
       h += '<select class="status-select" style="background:'+sc.bg+';color:'+sc.text+'" onchange="changeStatus(\''+p.uid+'\',this.value)">';
       ALL_STATUSES.forEach(s => { h += '<option value="'+esc(s)+'"'+(status===s?' selected':'')+' style="background:#fff;color:#111827">'+esc(s)+'</option>'; });
       h += '</select>';
@@ -165,7 +170,9 @@ function _render() {
     h += '<td class="small-cell">'+esc(p.assignedBy||"\u2014")+'</td>';
 
     // Offer
-    if (canEdit()) {
+    if (isDemand) {
+      // demand role: hide offer price column entirely
+    } else if (canEdit()) {
       h += '<td onclick="event.stopPropagation()"><input type="text" value="'+esc(p.offerPrice||'')+'" placeholder="\u2014" oninput="changeOffer(\''+p.uid+'\',this.value)" style="width:70px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;font-weight:600;color:#047857;outline:none;font-family:inherit;text-align:right"><span id="dot_'+p.uid+'_offer_price" class="save-dot '+(saveStatus[p.uid+'_offer_price']||'')+'"></span></td>';
     } else {
       h += '<td style="font-weight:600;color:#047857">'+(p.offerPrice||"\u2014")+'</td>';
@@ -175,12 +182,13 @@ function _render() {
     h += '<td style="font-size:11px;white-space:nowrap">'+formatDateOnly(p.keysHandoverDate)+'</td>';
 
     // Comments
-    const commentFields = [
+    var commentFields = [
       {key:"closureTeamComments", db:"closure_team_comments", tsKey:"closureTeamCommentsAt"},
       {key:"rahoolComments", db:"rahool_comments", tsKey:"rahoolCommentsAt"},
       {key:"prashantComments", db:"prashant_comments", tsKey:"prashantCommentsAt"},
       {key:"demandTeamComments", db:"demand_team_comments", tsKey:"demandTeamCommentsAt"}
     ];
+    if (isDemand) commentFields = commentFields.filter(function(cf){ return cf.key === "demandTeamComments"; });
     commentFields.forEach(cf => {
       const dotKey = p.uid + "_" + cf.db;
       const ts = timeAgo(p[cf.tsKey]);
@@ -203,7 +211,7 @@ function _render() {
     // Expanded row
     if (isExp) {
       try {
-      h += '<tr class="expand-row"><td colspan="22"><div class="expand-content">';
+      h += '<tr class="expand-row"><td colspan="' + colCount + '"><div class="expand-content">';
       h += '<div class="detail-tags">';
       const rate = getRatePerSqft(p);
       if (rate) h += '<span>Rate/sqft: <b>\u20B9'+rate+'</b></span>';
@@ -262,7 +270,7 @@ function _render() {
 
       h += '</div></td></tr>';
       } catch(expandErr) {
-        h += '<tr class="expand-row"><td colspan="22" style="padding:12px 20px;color:#ef4444;font-size:12px">Error loading details: '+esc(expandErr.message)+'</td></tr>';
+        h += '<tr class="expand-row"><td colspan="' + colCount + '" style="padding:12px 20px;color:#ef4444;font-size:12px">Error loading details: '+esc(expandErr.message)+'</td></tr>';
         console.error("Expand error for "+p.uid+":", expandErr);
       }
     }

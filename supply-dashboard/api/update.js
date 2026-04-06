@@ -40,6 +40,11 @@ module.exports = async function handler(req, res) {
       return res.status(403).json({ error: "Commenters can only edit comments, status, and offer price" });
     }
 
+    // Demand team can only edit demand_team_comments
+    if (user.role === "demand" && field !== "demand_team_comments") {
+      return res.status(403).json({ error: "Demand team can only edit demand team comments" });
+    }
+
     // Admins can edit all allowed fields
     if (!ALL_ALLOWED.includes(field)) {
       return res.status(400).json({ error: "Invalid field: " + field });

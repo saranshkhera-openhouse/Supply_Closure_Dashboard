@@ -230,32 +230,37 @@ module.exports = async function handler(req, res) {
     });
 
     // Step 6: Apply visibility filtering using email → POC name mapping
-    if (user.role === "admin") {
+    if (user.role === "admin" || user.role === "demand") {
       return res.status(200).json(allProperties);
     }
 
     // Email → POC display names
     const EMAIL_TO_NAMES = {
-      'sahaj.dureja@openhouse.in': ['Test Sahaj'],
+      'sahaj.dureja@openhouse.in': ['Sahaj Dureja'],
       'saransh.khera@openhouse.in': ['Saransh Khera'],
+      'ashish@openhouse.in': ['Ashish'],
       'sushmita.roy@openhouse.in': ['Sushmita Roy'],
       'arti.ahirwar@openhouse.in': ['Arti Ahirwar'],
       'abhishek.rathore@openhouse.in': ['Abhishek Rathore'],
       'animesh.singh@openhouse.in': ['Animesh Singh'],
       'kavita.rawat@openhouse.in': ['Kavita Rawat'],
+      'prashant@openhouse.in': ['Prashant'],
+      'rahool@openhouse.in': ['Rahool'],
       'rupali.prasad@openhouse.in': ['Rupali Prasad'],
+      'saurabh@openhouse.in': ['Saurabh'],
       'shashank.kumar@openhouse.in': ['Shashank Kumar'],
       'sahil.singh@openhouse.in': ['Sahil Singh'],
       'rahul.sheel@openhouse.in': ['Rahul Sheel'],
       'rahul.singh@openhouse.in': ['Rahul Singh'],
       'praveen.kumar@openhouse.in': ['Praveen Kumar'],
       'nishant.kumar@openhouse.in': ['Nishant Kumar'],
+      'ankit@openhouse.in': ['Ankit'],
       'vaibhav.dwivedi@openhouse.in': ['Vaibhav Dwivedi'],
       'aman.dixit@openhouse.in': ['Aman Dixit'],
-      'deepak.mishra@openhouse.in': ['Deepak Mishra'],
+      'deepak.mishra@openhoue.in': ['Deepak Mishra'],
       'nisha.deewan@openhouse.in': ['Nisha Deewan'],
       'ashwani.sharma@openhouse.in': ['Ashwani Sharma'],
-      'deepak.rana@openhouse.in': ['Deepak Rana'],
+      'deepak.rana@openhoue.in': ['Deepak Rana'],
     };
 
     // Manager email → team member display names they can also see
@@ -263,8 +268,6 @@ module.exports = async function handler(req, res) {
       'abhishek.rathore@openhouse.in': ['Aman Dixit','Arti Ahirwar','Kavita Rawat','Sahil Singh'],
       'animesh.singh@openhouse.in': ['Nishant Kumar','Rahul Sheel','Sushmita Roy'],
       'ashish@openhouse.in': ['Aman Dixit','Sahil Singh'],
-      'shashank.kumar@openhouse.in':['Apurv Nath','Deepak Mishra'],
-      'saransh.khera@openhouse.in':['Apurv Nath']
     };
 
     const userEmail = user.email.toLowerCase();
