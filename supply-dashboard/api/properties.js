@@ -268,6 +268,7 @@ module.exports = async function handler(req, res) {
       'abhishek.rathore@openhouse.in': ['Aman Dixit','Arti Ahirwar','Kavita Rawat','Sahil Singh'],
       'animesh.singh@openhouse.in': ['Nishant Kumar','Rahul Sheel','Sushmita Roy'],
       'ashish@openhouse.in': ['Aman Dixit','Sahil Singh'],
+      'shashank.kumar@openhouse.in':['Deepak Mishra','Apurv Nath']
     };
 
     const userEmail = user.email.toLowerCase();
