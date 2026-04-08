@@ -65,7 +65,7 @@ module.exports = async function handler(req, res) {
         guaranteed_sale_price, performance_guarantee,
         initial_period, grace_period, outstanding_loan, bank_name_loan,
         field_exec, assigned_by, token_requested_by,
-        schedule_date, visit_submitted_at, token_submitted_at,
+        schedule_date, schedule_submitted_at, visit_submitted_at, token_submitted_at,
         token_deal_submitted_at, final_submitted_at, listing_submitted_at,
         token_amount_requested, deal_token_amount, remaining_amount,
         balcony_details, image_urls, additional_images,
@@ -257,10 +257,10 @@ module.exports = async function handler(req, res) {
       'ankit@openhouse.in': ['Ankit'],
       'vaibhav.dwivedi@openhouse.in': ['Vaibhav Dwivedi'],
       'aman.dixit@openhouse.in': ['Aman Dixit'],
-      'deepak.mishra@openhouse.in': ['Deepak Mishra'],
+      'deepak.mishra@openhoue.in': ['Deepak Mishra'],
       'nisha.deewan@openhouse.in': ['Nisha Deewan'],
       'ashwani.sharma@openhouse.in': ['Ashwani Sharma'],
-      'deepak.rana@openhouse.in': ['Deepak Rana'],
+      'deepak.rana@openhoue.in': ['Deepak Rana'],
     };
 
     // Manager email → team member display names they can also see
@@ -268,7 +268,6 @@ module.exports = async function handler(req, res) {
       'abhishek.rathore@openhouse.in': ['Aman Dixit','Arti Ahirwar','Kavita Rawat','Sahil Singh'],
       'animesh.singh@openhouse.in': ['Nishant Kumar','Rahul Sheel','Sushmita Roy'],
       'ashish@openhouse.in': ['Aman Dixit','Sahil Singh'],
-      'shashank.kumar@openhouse.in':['Deepak Mishra','Apurv Nath']
     };
 
     const userEmail = user.email.toLowerCase();
@@ -350,6 +349,7 @@ function transformRow(r) {
     assignedBy: r.assigned_by || "",
     tokenRequestedBy: r.token_requested_by || "",
     scheduleDate: r.schedule_date || "",
+    scheduleSubmittedAt: r.schedule_submitted_at || "",
     visitSubmittedAt: r.visit_submitted_at || "",
     tokenSubmittedAt: r.token_submitted_at || "",
     tokenDealSubmittedAt: r.token_deal_submitted_at || "",
