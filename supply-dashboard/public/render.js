@@ -111,9 +111,9 @@ function _render() {
   // Table
   h += '<div id="tableWrap" style="flex:1;overflow:auto"><table><thead><tr>';
   var isDemand = currentUser && currentUser.role === 'demand';
-  var DEMAND_HIDE = ["Ask (in Lakhs)","Name","Phone","Offer Price","Closure Team Comments","Rahool Comments","Prashant Comments"];
+  var DEMAND_HIDE = ["Ask (in Lakhs)","Name","Phone","Offer Price","Brokerage","Closure Team Comments","Rahool Comments","Prashant Comments"];
   var COLS = [
-    {hdr:"Date Added",key:"scheduleSubmittedAt"},{hdr:"Society",key:"society"},{hdr:"City",key:"city"},{hdr:"Location",key:"locality"},{hdr:"Tower",key:"towerNo"},{hdr:"Unit No.",key:"unitNo"},{hdr:"Config",key:"configuration"},{hdr:"Ask (in Lakhs)",key:"demandPrice"},{hdr:"Area (in Sqft)",key:"areaSqft"},{hdr:"Floor",key:"floor"},{hdr:"Source",key:"source"},{hdr:"Name",key:"ownerName"},{hdr:"Phone",key:"contactNo"},{hdr:"Status",key:null},{hdr:"Exit Facing",key:"exitFacing"},{hdr:"Balcony View",key:null},{hdr:"POC",key:"assignedBy"},{hdr:"Offer Price",key:null},{hdr:"Key Handover",key:"keysHandoverDate"},{hdr:"Closure Team Comments",key:null},{hdr:"Rahool Comments",key:null},{hdr:"Prashant Comments",key:null},{hdr:"Demand Team Comments",key:null}
+    {hdr:"Date Added",key:"scheduleSubmittedAt"},{hdr:"Society",key:"society"},{hdr:"City",key:"city"},{hdr:"Location",key:"locality"},{hdr:"Tower",key:"towerNo"},{hdr:"Unit No.",key:"unitNo"},{hdr:"Config",key:"configuration"},{hdr:"Ask (in Lakhs)",key:"demandPrice"},{hdr:"Area (in Sqft)",key:"areaSqft"},{hdr:"Floor",key:"floor"},{hdr:"Source",key:"source"},{hdr:"Name",key:"ownerName"},{hdr:"Phone",key:"contactNo"},{hdr:"Status",key:null},{hdr:"Exit Facing",key:"exitFacing"},{hdr:"Balcony View",key:null},{hdr:"POC",key:"assignedBy"},{hdr:"Offer Price",key:null},{hdr:"Brokerage",key:"totalBrokerageAmount"},{hdr:"Key Handover",key:"keysHandoverDate"},{hdr:"Closure Team Comments",key:null},{hdr:"Rahool Comments",key:null},{hdr:"Prashant Comments",key:null},{hdr:"Demand Team Comments",key:null}
   ];
   if (isDemand) COLS = COLS.filter(function(c){ return DEMAND_HIDE.indexOf(c.hdr) === -1; });
   var colCount = COLS.length;
@@ -178,6 +178,9 @@ function _render() {
     } else {
       h += '<td style="font-weight:600;color:#047857">'+(p.offerPrice||"\u2014")+'</td>';
     }
+
+    // Brokerage
+    if (!isDemand) h += '<td style="font-size:11px">'+(p.totalBrokerageAmount||"\u2014")+'</td>';
 
     // Key Handover Date
     h += '<td style="font-size:11px;white-space:nowrap">'+formatDateOnly(p.keysHandoverDate)+'</td>';

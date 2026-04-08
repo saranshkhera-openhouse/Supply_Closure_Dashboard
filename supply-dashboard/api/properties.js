@@ -70,7 +70,7 @@ module.exports = async function handler(req, res) {
         token_amount_requested, deal_token_amount, remaining_amount,
         balcony_details, image_urls, additional_images,
         exit_compass_image, documents_available,
-        status_override, offer_price, closure_team_comments, rahool_comments,
+        status_override, offer_price, total_brokerage_amount, closure_team_comments, rahool_comments,
         prashant_comments, demand_team_comments,
         closure_team_comments_at, rahool_comments_at,
         prashant_comments_at, demand_team_comments_at,
@@ -257,10 +257,10 @@ module.exports = async function handler(req, res) {
       'ankit@openhouse.in': ['Ankit'],
       'vaibhav.dwivedi@openhouse.in': ['Vaibhav Dwivedi'],
       'aman.dixit@openhouse.in': ['Aman Dixit'],
-      'deepak.mishra@openhouse.in': ['Deepak Mishra'],
+      'deepak.mishra@openhoue.in': ['Deepak Mishra'],
       'nisha.deewan@openhouse.in': ['Nisha Deewan'],
       'ashwani.sharma@openhouse.in': ['Ashwani Sharma'],
-      'deepak.rana@openhouse.in': ['Deepak Rana'],
+      'deepak.rana@openhoue.in': ['Deepak Rana'],
     };
 
     // Manager email → team member display names they can also see
@@ -363,6 +363,7 @@ function transformRow(r) {
     documentsAvailable: parseJson(r.documents_available),
     statusOverride: r.status_override || "",
     offerPrice: r.offer_price || "",
+    totalBrokerageAmount: r.total_brokerage_amount || "",
     closureTeamComments: r.closure_team_comments || "",
     rahoolComments: r.rahool_comments || "",
     prashantComments: r.prashant_comments || "",

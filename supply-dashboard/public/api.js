@@ -40,7 +40,7 @@ function downloadCSV() {
     {hdr:"Name",key:"ownerName"},{hdr:"Phone",key:"contactNo"},
     {hdr:"Status",fn:function(p){return (p.statusOverride||"New")}},
     {hdr:"Exit Facing",key:"exitFacing"},{hdr:"Balcony View",fn:function(p){return getBalconyView(p)||p.balconyView||""}},
-    {hdr:"POC",key:"assignedBy"},{hdr:"Offer Price",key:"offerPrice"},
+    {hdr:"POC",key:"assignedBy"},{hdr:"Offer Price",key:"offerPrice"},{hdr:"Brokerage",key:"totalBrokerageAmount"},
     {hdr:"Key Handover Date",key:"keysHandoverDate"},
     {hdr:"Closure Team Comments",key:"closureTeamComments"},
     {hdr:"Rahool Comments",key:"rahoolComments"},
