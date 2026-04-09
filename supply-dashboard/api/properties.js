@@ -311,7 +311,7 @@ function transformRow(r) {
   const ownerName =
     [r.first_name, r.last_name].filter(Boolean).join(" ") ||
     r.owner_broker_name ||
-    [r.owner_first_name, r.owner_last_name].filter(Boolean).join(" ") ||
+    [r.first_name, r.last_name].filter(Boolean).join(" ") ||
     "";
 
   return {
