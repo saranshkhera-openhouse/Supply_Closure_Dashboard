@@ -56,8 +56,7 @@ module.exports = async function handler(req, res) {
     // Step 1: Get live properties from Neon
     const rows = await sql`
       SELECT 
-        uid, source, demand_price,
-        owner_first_name, owner_last_name, first_name, last_name, owner_broker_name,
+        uid, source, demand_price, first_name, last_name, owner_broker_name,
         contact_no, city, locality, society_name, unit_no, floor, tower_no,
         configuration, area_sqft, bathrooms, balconies, gas_pipeline,
         parking, furnishing, furnishing_details, exit_facing,
