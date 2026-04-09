@@ -67,7 +67,7 @@ module.exports = async function handler(req, res) {
         schedule_date, schedule_submitted_at, visit_submitted_at, token_submitted_at,
         token_deal_submitted_at, final_submitted_at, listing_submitted_at,
         token_amount_requested, deal_token_amount, remaining_amount,
-        balcony_details, image_urls, additional_images,
+        balcony_details, additional_images,
         exit_compass_image, documents_available,
         status_override, offer_price, total_brokerage_amount, closure_team_comments, rahool_comments,
         prashant_comments, demand_team_comments,
