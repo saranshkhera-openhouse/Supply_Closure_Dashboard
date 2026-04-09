@@ -124,6 +124,12 @@ function changeOffer(uid, value) {
   debouncedSave(uid, "offer_price", value);
 }
 
+function changeBrokerage(uid, value) {
+  const prop = DATA.find(p => p.uid === uid);
+  if (prop) prop.supplyDashBrokerage = value;
+  debouncedSave(uid, "supply_dash_brokerage", value);
+}
+
 async function changePoc(uid, value) {
   if (!value) return;
   const prop = DATA.find(p => p.uid === uid);

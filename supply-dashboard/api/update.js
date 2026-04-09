@@ -4,6 +4,7 @@ const { requireAuth } = require("./_auth");
 const COMMENT_FIELDS = [
   "status_override",
   "offer_price",
+  "supply_dash_brokerage",
   "closure_team_comments",
   "rahool_comments",
   "prashant_comments",

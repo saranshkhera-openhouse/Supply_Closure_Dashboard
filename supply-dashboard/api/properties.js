@@ -56,7 +56,8 @@ module.exports = async function handler(req, res) {
     // Step 1: Get live properties from Neon
     const rows = await sql`
       SELECT 
-        uid, source, demand_price, first_name, last_name, owner_broker_name,
+        uid, source, demand_price,
+        first_name, last_name, owner_broker_name,
         contact_no, city, locality, society_name, unit_no, floor, tower_no,
         configuration, area_sqft, bathrooms, balconies, gas_pipeline,
         parking, furnishing, furnishing_details, exit_facing,
@@ -69,7 +70,7 @@ module.exports = async function handler(req, res) {
         token_amount_requested, deal_token_amount, remaining_amount,
         balcony_details, additional_images,
         exit_compass_image, documents_available,
-        status_override, offer_price, total_brokerage_amount, closure_team_comments, rahool_comments,
+        status_override, offer_price, supply_dash_brokerage, closure_team_comments, rahool_comments,
         prashant_comments, demand_team_comments,
         closure_team_comments_at, rahool_comments_at,
         prashant_comments_at, demand_team_comments_at,
@@ -94,6 +95,7 @@ module.exports = async function handler(req, res) {
       const FIELD_TO_KEY = {
         "status_override": "statusOverride",
         "offer_price": "offerPrice",
+        "supply_dash_brokerage": "supplyDashBrokerage",
         "closure_team_comments": "closureTeamComments",
         "rahool_comments": "rahoolComments",
         "prashant_comments": "prashantComments",
@@ -310,7 +312,6 @@ function transformRow(r) {
   const ownerName =
     [r.first_name, r.last_name].filter(Boolean).join(" ") ||
     r.owner_broker_name ||
-    [r.first_name, r.last_name].filter(Boolean).join(" ") ||
     "";
 
   return {
@@ -362,7 +363,7 @@ function transformRow(r) {
     documentsAvailable: parseJson(r.documents_available),
     statusOverride: r.status_override || "",
     offerPrice: r.offer_price || "",
-    totalBrokerageAmount: r.total_brokerage_amount || "",
+    supplyDashBrokerage: r.supply_dash_brokerage || "",
     closureTeamComments: r.closure_team_comments || "",
     rahoolComments: r.rahool_comments || "",
     prashantComments: r.prashant_comments || "",
