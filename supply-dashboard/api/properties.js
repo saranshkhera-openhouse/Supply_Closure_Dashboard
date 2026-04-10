@@ -67,7 +67,7 @@ module.exports = async function handler(req, res) {
         field_exec, assigned_by, token_requested_by,
         schedule_date, schedule_submitted_at, visit_submitted_at, token_submitted_at,
         token_deal_submitted_at, final_submitted_at, listing_submitted_at,
-        token_amount_requested, deal_token_amount, remaining_amount,
+        deal_token_amount, remaining_amount,
         balcony_details, additional_images,
         exit_compass_image, documents_available,
         status_override, offer_price, supply_dash_brokerage, closure_team_comments, rahool_comments,
@@ -262,7 +262,6 @@ module.exports = async function handler(req, res) {
       'nisha.deewan@openhouse.in': ['Nisha Deewan'],
       'ashwani.sharma@openhouse.in': ['Ashwani Sharma'],
       'deepak.rana@openhouse.in': ['Deepak Rana'],
-      'apurv.nath@openhouse.in': ['Apurv Nath']
     };
 
     // Manager email → team member display names they can also see
@@ -270,7 +269,6 @@ module.exports = async function handler(req, res) {
       'abhishek.rathore@openhouse.in': ['Aman Dixit','Arti Ahirwar','Kavita Rawat','Sahil Singh'],
       'animesh.singh@openhouse.in': ['Nishant Kumar','Rahul Sheel','Sushmita Roy'],
       'ashish@openhouse.in': ['Aman Dixit','Sahil Singh'],
-      'shashank.kumar@openhouse.in': ['Deepak Mishra','Deepak Rana','Apurv Nath'],
     };
 
     const userEmail = user.email.toLowerCase();
@@ -357,7 +355,6 @@ function transformRow(r) {
     tokenDealSubmittedAt: r.token_deal_submitted_at || "",
     finalSubmittedAt: r.final_submitted_at || "",
     listingSubmittedAt: r.listing_submitted_at || "",
-    tokenAmountRequested: r.token_amount_requested || "",
     dealTokenAmount: r.deal_token_amount || "",
     remainingAmount: r.remaining_amount || "",
     balconyDetails: parseJson(r.balcony_details),
