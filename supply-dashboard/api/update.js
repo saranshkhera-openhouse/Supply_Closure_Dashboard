@@ -83,6 +83,11 @@ module.exports = async function handler(req, res) {
     if (tsCol) {
       query = `UPDATE properties SET ${field} = $1, ${tsCol} = NOW() WHERE uid = $2 RETURNING uid`;
       params = [value || "", uid];
+    } else if (field === "status_override") {
+      // Sync is_token_refunded: true if "Cancelled Post Token", false otherwise
+      const refunded = (value === "Cancelled Post Token");
+      query = `UPDATE properties SET status_override = $1, is_token_refunded = $2 WHERE uid = $3 RETURNING uid`;
+      params = [value || "", refunded, uid];
     } else {
       query = `UPDATE properties SET ${field} = $1 WHERE uid = $2 RETURNING uid`;
       params = [value || "", uid];
