@@ -89,7 +89,7 @@ const STATUS_MAP = {
   "OH_Rejected": "OH Rejected",
   "Oh Rejected": "OH Rejected",
   "Duplicate_Entry": "Duplicacy",
-  "Dead": "Dead NI",
+  "Dead": "Dead - Not Interested",
   "Followup_ fixed brkrg": "Followup",
   "High Price": "Price High",
   "Oh_hold": "Hold",

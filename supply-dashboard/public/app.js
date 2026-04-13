@@ -1,4 +1,4 @@
-const ALL_STATUSES = ["AMA Signed","Cancelled post token","Dead - Legal","Dead - Sold","Dead NI","Documents Awaited","Duplicacy","Email Confirmation","Followup","Future Prospect","Hold","Negotiation","Offer Accepted","Offer Made","OH Rejected","Price High","Scheduled","Seller Rejected","Token Transferred"];
+const ALL_STATUSES = ["AMA Signed","Cancelled Post Token","Dead - Legal","Dead - Sold","Dead - Not Interested","Documents Awaited","Duplicacy","Email Confirmation","Followup","Future Prospect","Hold","Negotiation","Offer Accepted","Offer Made","OH Rejected","Price High","Scheduled","Seller Rejected","Token Transferred"];
 
 const STATUS_COLORS = {
   "Negotiation":       {bg:"#065f46",text:"#fff"},
@@ -14,11 +14,11 @@ const STATUS_COLORS = {
   "Price High":        {bg:"#be123c",text:"#fff"},
   "OH Rejected":       {bg:"#e11d48",text:"#fff"},
   "Dead - Sold":       {bg:"#9f1239",text:"#fff"},
-  "Dead NI":           {bg:"#881337",text:"#fff"},
+  "Dead - Not Interested":           {bg:"#881337",text:"#fff"},
   "Dead - Legal":      {bg:"#7f1d1d",text:"#fff"},
   "Duplicacy":         {bg:"#9ca3af",text:"#fff"},
   "Hold":              {bg:"#6b7280",text:"#fff"},
-  "Cancelled post token":{bg:"#b45309",text:"#fff"},
+  "Cancelled Post Token":{bg:"#b45309",text:"#fff"},
   "Seller Rejected":   {bg:"#dc2626",text:"#fff"},
   "New":               {bg:"#d1d5db",text:"#374151"},
 };
