@@ -1,4 +1,4 @@
-const ALL_STATUSES = ["AMA Signed","Cancelled post token","Dead - Legal","Dead - Sold","Dead - Not Interested","Documents Awaited","Duplicacy","Email Confirmation","Followup","Future Prospect","Hold","Negotiation","Offer Accepted","Offer Made","OH Rejected","Price High","Scheduled","Seller Rejected","Token Transferred"];
+const ALL_STATUSES = ["AMA Signed","Cancelled Post Token","Dead - Legal","Dead - Sold","Dead - Not Interested","Documents Awaited","Duplicacy","Email Confirmation","Followup","Future Prospect","Hold","Negotiation","Offer Accepted","Offer Made","OH Rejected","Price High","Scheduled","Seller Rejected","Token Transferred"];
 
 const STATUS_COLORS = {
   "Negotiation":       {bg:"#065f46",text:"#fff"},
