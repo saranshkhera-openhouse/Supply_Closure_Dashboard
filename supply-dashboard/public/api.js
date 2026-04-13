@@ -42,6 +42,7 @@ function downloadCSV() {
     {hdr:"Exit Facing",key:"exitFacing"},{hdr:"Balcony View",fn:function(p){return getBalconyView(p)||p.balconyView||""}},
     {hdr:"POC",key:"assignedBy"},{hdr:"Offer Price",key:"offerPrice"},{hdr:"Brokerage",key:"supplyDashBrokerage"},
     {hdr:"Key Handover Date",key:"keysHandoverDate"},
+    {hdr:"Internal Remarks",key:"tokenRemarks"},
     {hdr:"Closure Team Comments",key:"closureTeamComments"},
     {hdr:"Rahool Comments",key:"rahoolComments"},
     {hdr:"Prashant Comments",key:"prashantComments"},
@@ -114,4 +115,3 @@ function debouncedSave(uid, dbField, value) {
   clearTimeout(saveTimers[key]);
   saveTimers[key] = setTimeout(() => saveField(uid, dbField, value), 800);
 }
-
