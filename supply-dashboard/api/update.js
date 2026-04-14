@@ -11,11 +11,21 @@ const COMMENT_FIELDS = [
   "demand_team_comments"
 ];
 
-// Fields only admins can change
 const ADMIN_FIELDS = ["assigned_by"];
-
-// All allowed fields
 const ALL_ALLOWED = [...COMMENT_FIELDS, ...ADMIN_FIELDS];
+
+// Fields that get activity-logged
+const LOGGED_FIELDS = {
+  "assigned_by": { category: "assignment", field: "poc" },
+  "status_override": { category: "status", field: "status" },
+};
+
+// Fire-and-forget — never blocks the response
+function logActivity(sql, { uid, action, category, actor_email, actor_name, details }) {
+  sql`INSERT INTO activity_logs (uid, action, category, actor_email, actor_name, details)
+      VALUES (${uid}, ${action}, ${category}, ${actor_email || ""}, ${actor_name || ""}, ${JSON.stringify(details)})
+  `.catch(err => console.error("Activity log failed:", err.message));
+}
 
 module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -24,7 +34,6 @@ module.exports = async function handler(req, res) {
   const user = await requireAuth(req, res);
   if (!user) return;
 
-  // Viewers cannot edit anything
   if (user.role === "viewer") {
     return res.status(403).json({ error: "Viewers cannot make edits" });
   }
@@ -36,33 +45,12 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: "uid and field are required" });
     }
 
-    // Commenters can only edit comment fields
     if (user.role === "commenter" && !COMMENT_FIELDS.includes(field)) {
       return res.status(403).json({ error: "Commenters can only edit comments, status, and offer price" });
     }
 
-    // Demand team can only edit demand_team_comments
     if (user.role === "demand" && field !== "demand_team_comments") {
       return res.status(403).json({ error: "Demand team can only edit demand team comments" });
-    }
-
-    // Admins can edit all allowed fields
-    if (!ALL_ALLOWED.includes(field)) {
-      return res.status(400).json({ error: "Invalid field: " + field });
-    }
-
-    // Legacy rows
-    if (uid.startsWith("LEGACY-")) {
-      if (!ALL_ALLOWED.includes(field)) {
-        return res.status(400).json({ error: "Invalid field: " + field });
-      }
-      const sql = getDB();
-      await sql`
-        INSERT INTO legacy_edits (uid, field, value, updated_at)
-        VALUES (${uid}, ${field}, ${value || ""}, NOW())
-        ON CONFLICT (uid, field) DO UPDATE SET value = ${value || ""}, updated_at = NOW()
-      `;
-      return res.status(200).json({ success: true, uid, field, value });
     }
 
     if (!ALL_ALLOWED.includes(field)) {
@@ -70,6 +58,44 @@ module.exports = async function handler(req, res) {
     }
 
     const sql = getDB();
+
+    // Legacy rows
+    if (uid.startsWith("LEGACY-")) {
+      // Fetch old value for logging
+      let oldValue = "";
+      if (LOGGED_FIELDS[field]) {
+        try {
+          const old = await sql`SELECT value FROM legacy_edits WHERE uid = ${uid} AND field = ${field}`;
+          oldValue = old.length > 0 ? old[0].value : "";
+        } catch {}
+      }
+
+      await sql`
+        INSERT INTO legacy_edits (uid, field, value, updated_at)
+        VALUES (${uid}, ${field}, ${value || ""}, NOW())
+        ON CONFLICT (uid, field) DO UPDATE SET value = ${value || ""}, updated_at = NOW()
+      `;
+
+      if (LOGGED_FIELDS[field] && oldValue !== (value || "")) {
+        const meta = LOGGED_FIELDS[field];
+        logActivity(sql, {
+          uid, action: "field_change", category: meta.category,
+          actor_email: user.email, actor_name: user.name || user.email,
+          details: { field: meta.field, old: oldValue, new: value || "", source: "supply_dashboard" }
+        });
+      }
+
+      return res.status(200).json({ success: true, uid, field, value });
+    }
+
+    // Live rows — fetch old value before update
+    let oldValue = "";
+    if (LOGGED_FIELDS[field]) {
+      try {
+        const old = await sql(`SELECT ${field} as val FROM properties WHERE uid = $1`, [uid]);
+        oldValue = old.length > 0 ? (old[0].val || "") : "";
+      } catch {}
+    }
 
     const COMMENT_TS = {
       "closure_team_comments": "closure_team_comments_at",
@@ -84,7 +110,6 @@ module.exports = async function handler(req, res) {
       query = `UPDATE properties SET ${field} = $1, ${tsCol} = NOW() WHERE uid = $2 RETURNING uid`;
       params = [value || "", uid];
     } else if (field === "status_override") {
-      // Sync is_token_refunded: true if "Cancelled Post Token", false otherwise
       const refunded = (value === "Cancelled Post Token");
       query = `UPDATE properties SET status_override = $1, is_token_refunded = $2 WHERE uid = $3 RETURNING uid`;
       params = [value || "", refunded, uid];
@@ -96,6 +121,16 @@ module.exports = async function handler(req, res) {
 
     if (result.length === 0) {
       return res.status(404).json({ error: "Property not found" });
+    }
+
+    // Log after successful update (fire-and-forget)
+    if (LOGGED_FIELDS[field] && oldValue !== (value || "")) {
+      const meta = LOGGED_FIELDS[field];
+      logActivity(sql, {
+        uid, action: "field_change", category: meta.category,
+        actor_email: user.email, actor_name: user.name || user.email,
+        details: { field: meta.field, old: oldValue, new: value || "", source: "supply_dashboard" }
+      });
     }
 
     return res.status(200).json({ success: true, uid, field, value });
