@@ -16,14 +16,19 @@ const ALL_ALLOWED = [...COMMENT_FIELDS, ...ADMIN_FIELDS];
 
 // Fields that get activity-logged
 const LOGGED_FIELDS = {
-  "assigned_by": { category: "assignment", field: "poc" },
-  "status_override": { category: "status", field: "status" },
+  "assigned_by": { action: "poc_changed", category: "assignment", field: "poc" },
+  "status_override": { action: "status_changed", category: "status", field: "status" },
 };
+
+// IST timestamp
+function getIST() {
+  return new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+}
 
 // Fire-and-forget — never blocks the response
 function logActivity(sql, { uid, action, category, actor_email, actor_name, details }) {
-  sql`INSERT INTO activity_logs (uid, action, category, actor_email, actor_name, details)
-      VALUES (${uid}, ${action}, ${category}, ${actor_email || ""}, ${actor_name || ""}, ${JSON.stringify(details)})
+  sql`INSERT INTO activity_logs (uid, action, category, actor_email, actor_name, details, dashboard)
+      VALUES (${uid}, ${action}, ${category}, ${actor_email || ""}, ${actor_name || ""}, ${JSON.stringify(details)}, ${"Supply Dashboard"})
   `.catch(err => console.error("Activity log failed:", err.message));
 }
 
@@ -61,7 +66,6 @@ module.exports = async function handler(req, res) {
 
     // Legacy rows
     if (uid.startsWith("LEGACY-")) {
-      // Fetch old value for logging
       let oldValue = "";
       if (LOGGED_FIELDS[field]) {
         try {
@@ -79,9 +83,9 @@ module.exports = async function handler(req, res) {
       if (LOGGED_FIELDS[field] && oldValue !== (value || "")) {
         const meta = LOGGED_FIELDS[field];
         logActivity(sql, {
-          uid, action: "field_change", category: meta.category,
+          uid, action: meta.action, category: meta.category,
           actor_email: user.email, actor_name: user.name || user.email,
-          details: { field: meta.field, old: oldValue, new: value || "", source: "supply_dashboard" }
+          details: { field: meta.field, old: oldValue, new: value || "", source: "supply_dashboard", timestamp_ist: getIST() }
         });
       }
 
@@ -127,9 +131,9 @@ module.exports = async function handler(req, res) {
     if (LOGGED_FIELDS[field] && oldValue !== (value || "")) {
       const meta = LOGGED_FIELDS[field];
       logActivity(sql, {
-        uid, action: "field_change", category: meta.category,
+        uid, action: meta.action, category: meta.category,
         actor_email: user.email, actor_name: user.name || user.email,
-        details: { field: meta.field, old: oldValue, new: value || "", source: "supply_dashboard" }
+        details: { field: meta.field, old: oldValue, new: value || "", source: "supply_dashboard", timestamp_ist: getIST() }
       });
     }
 
