@@ -22,17 +22,13 @@ function _render() {
   let h = "";
 
   // Header
-  h += '<div class="header">';
+  h += '<div class="header" style="flex-direction:column;align-items:stretch;gap:8px">';
+  // Row 1: Logo left, user bar right
+  h += '<div style="display:flex;align-items:center;justify-content:space-between">';
   h += '<div style="display:flex;align-items:center;gap:10px"><img src="/logo.png" class="logo" alt="OH"><div><div style="font-size:16px;font-weight:700">Supply Closure Tracker</div><div style="font-size:11px;color:#6b7280">All Cities &middot; '+DATA.length+' Properties</div></div></div>';
-  h += '<div class="tabs">';
-  tabStatuses.forEach(s => {
-    h += '<span class="tab'+(state.statusFilter.indexOf(s)>=0?' active':'')+'" onclick="toggleTab(\''+s+'\')">'+s+' <span style="font-weight:700;margin-left:2px">'+(counts[s]||0)+'</span></span>';
-  });
-  h += '</div>';
-  // User bar — rightmost
   if (currentUser) {
     const pendingCount = adminRequests.filter(r => r.status === 'pending').length;
-    h += '<div class="user-bar" style="margin-left:auto">';
+    h += '<div class="user-bar">';
     h += '<span class="email">'+esc(currentUser.name || currentUser.email)+'</span>';
     if (currentUser.role === 'admin') {
       h += '<button class="admin-btn" onclick="openAdmin()">Manage Users';
@@ -42,6 +38,13 @@ function _render() {
     h += '<button onclick="logout()">Logout</button>';
     h += '</div>';
   }
+  h += '</div>';
+  // Row 2: Tab pills
+  h += '<div class="tabs">';
+  tabStatuses.forEach(s => {
+    h += '<span class="tab'+(state.statusFilter.indexOf(s)>=0?' active':'')+'" onclick="toggleTab(\''+s+'\')">'+s+' <span style="font-weight:700;margin-left:2px">'+(counts[s]||0)+'</span></span>';
+  });
+  h += '</div>';
   h += '</div>';
 
   // Date filter bar
