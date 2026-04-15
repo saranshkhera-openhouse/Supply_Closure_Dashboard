@@ -1,23 +1,55 @@
 // ── Helpers ──
+
+// Pipeline hierarchy — higher number = further along
+const STAGE_RANK = {
+  "\u2014":                 0,
+  "Visit Scheduled":     1,
+  "Visit Completed":     2,
+  "Followup":            3,
+  "Future Prospect":     3,
+  "Price High":          3,
+  "Negotiation":         4,
+  "Token Requested":     5,
+  "Token Transferred":   6,
+  "AMA Req":             7,
+  "Hold":                8,
+  "AMA Signed":          9,
+  "Key Handover":       10,
+  "Listed":             11,
+};
+
+// Terminal statuses — always win, no matter what
+const TERMINAL_STATUSES = ["Dead - Legal","Dead - Sold","Dead - Not Interested","Cancelled Post Token","Duplicacy","OH Rejected","Seller Rejected"];
+
 function getStage(p) {
   if (p.isTokenRefunded)              return 'Cancelled Post Token';
   if (p.listingSubmittedAt)           return 'Listed';
   if (p.finalSubmittedAt)             return 'Key Handover';
-  if (p.cpBillSubmittedAt)            return 'CP Bill';
+  if (p.cpBillSubmittedAt)            return 'AMA Signed';
   if (p.pendingRequestSubmittedAt)    return 'AMA Signed';
   if (p.amaSubmittedAt)               return 'AMA Req';
-  if (p.tokenDealSubmittedAt)         return 'Offer Made';
+  if (p.tokenDealSubmittedAt)         return 'Token Transferred';
   if (p.tokenSubmittedAt)             return 'Token Requested';
-  if (p.visitSubmittedAt)             return 'Visited';
-  if (p.scheduleSubmittedAt)          return 'Scheduled';
+  if (p.visitSubmittedAt)             return 'Visit Completed';
+  if (p.scheduleSubmittedAt)          return 'Visit Scheduled';
   return '\u2014';
 }
 
 function getStatus(p) {
-  // Manual override from dashboard dropdown always wins
-  if (p.statusOverride) return p.statusOverride;
-  // Otherwise auto-detect from form pipeline
-  return getStage(p);
+  var autoStage = getStage(p);
+  var manual = p.statusOverride || "";
+
+  // No manual override → use auto
+  if (!manual) return autoStage;
+
+  // Terminal statuses always win
+  if (TERMINAL_STATUSES.indexOf(manual) >= 0) return manual;
+
+  // Compare ranks — higher rank wins
+  var autoRank = STAGE_RANK[autoStage] || 0;
+  var manualRank = STAGE_RANK[manual] || 0;
+
+  return manualRank >= autoRank ? manual : autoStage;
 }
 
 function getBalconyView(p) {
@@ -161,4 +193,3 @@ function getCounts() {
   DATA.forEach(p => { const s = getStatus(p); c[s] = (c[s]||0) + 1; });
   return c;
 }
-

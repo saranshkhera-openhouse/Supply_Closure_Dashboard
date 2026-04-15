@@ -1,21 +1,16 @@
-const ALL_STATUSES = ["AMA Req","AMA Signed","CP Bill","Cancelled Post Token","Dead - Legal","Dead - Not Interested","Dead - Sold","Documents Awaited","Duplicacy","Email Confirmation","Followup","Future Prospect","Hold","Key Handover","Listed","Negotiation","Offer Accepted","Offer Made","OH Rejected","Price High","Scheduled","Seller Rejected","Token Requested","Token Transferred","Visited"];
+const ALL_STATUSES = ["AMA Req","AMA Signed","Cancelled Post Token","Dead - Legal","Dead - Not Interested","Dead - Sold","Duplicacy","Followup","Future Prospect","Hold","Key Handover","Listed","Negotiation","OH Rejected","Price High","Seller Rejected","Token Requested","Token Transferred","Visit Completed","Visit Scheduled"];
 
 const STATUS_COLORS = {
-  "Scheduled":           {bg:"#64748b",text:"#fff"},
-  "Visited":             {bg:"#0d9488",text:"#fff"},
+  "Visit Scheduled":     {bg:"#64748b",text:"#fff"},
+  "Visit Completed":     {bg:"#0d9488",text:"#fff"},
   "Followup":            {bg:"#ca8a04",text:"#fff"},
   "Negotiation":         {bg:"#065f46",text:"#fff"},
-  "Offer Made":          {bg:"#047857",text:"#fff"},
-  "Offer Accepted":      {bg:"#0d9488",text:"#fff"},
   "Token Requested":     {bg:"#ea580c",text:"#fff"},
   "Token Transferred":   {bg:"#1e40af",text:"#fff"},
-  "Documents Awaited":   {bg:"#d97706",text:"#fff"},
   "AMA Req":             {bg:"#7c3aed",text:"#fff"},
   "AMA Signed":          {bg:"#15803d",text:"#fff"},
-  "CP Bill":             {bg:"#ec4899",text:"#fff"},
   "Key Handover":        {bg:"#10b981",text:"#fff"},
   "Listed":              {bg:"#06b6d4",text:"#fff"},
-  "Email Confirmation":  {bg:"#4f46e5",text:"#fff"},
   "Future Prospect":     {bg:"#0369a1",text:"#fff"},
   "Price High":          {bg:"#be123c",text:"#fff"},
   "OH Rejected":         {bg:"#e11d48",text:"#fff"},

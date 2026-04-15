@@ -17,7 +17,7 @@ function _render() {
   const counts = getCounts();
   const cities = ["All", ...new Set(DATA.map(p => p.city))];
   const pocs = ["All", ...new Set(DATA.map(p => p.assignedBy).filter(Boolean))];
-  const tabStatuses = ["Scheduled","Followup","Negotiation","Offer Made","Token Transferred","Documents Awaited","AMA Signed"];
+  const tabStatuses = ["Visit Scheduled","Visit Completed","Followup","Negotiation","Token Requested","Token Transferred","AMA Req","AMA Signed","Key Handover","Listed"];
 
   let h = "";
 
