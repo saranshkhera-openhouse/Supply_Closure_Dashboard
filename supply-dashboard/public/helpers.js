@@ -1,13 +1,23 @@
 // ── Helpers ──
+function getStage(p) {
+  if (p.isTokenRefunded)              return 'Cancelled Post Token';
+  if (p.listingSubmittedAt)           return 'Listed';
+  if (p.finalSubmittedAt)             return 'Key Handover';
+  if (p.cpBillSubmittedAt)            return 'CP Bill';
+  if (p.pendingRequestSubmittedAt)    return 'AMA Signed';
+  if (p.amaSubmittedAt)               return 'AMA Req';
+  if (p.tokenDealSubmittedAt)         return 'Offer Made';
+  if (p.tokenSubmittedAt)             return 'Token Requested';
+  if (p.visitSubmittedAt)             return 'Visited';
+  if (p.scheduleSubmittedAt)          return 'Scheduled';
+  return '\u2014';
+}
+
 function getStatus(p) {
+  // Manual override from dashboard dropdown always wins
   if (p.statusOverride) return p.statusOverride;
-  if (p.listingSubmittedAt) return "AMA Signed";
-  if (p.finalSubmittedAt) return "AMA Signed";
-  if (p.tokenDealSubmittedAt) return "Token Transferred";
-  if (p.tokenSubmittedAt) return "Documents Awaited";
-  if (p.visitSubmittedAt) return "Followup";
-  if (p.scheduleDate) return "Scheduled";
-  return "New";
+  // Otherwise auto-detect from form pipeline
+  return getStage(p);
 }
 
 function getBalconyView(p) {
