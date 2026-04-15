@@ -147,6 +147,29 @@ function timeAgo(ts) {
 
 function getFiltered() {
   var result = DATA.filter(p => {
+    // Date filter on scheduleSubmittedAt
+    if (state.dateFilter !== "all") {
+      var dateVal = p.scheduleSubmittedAt;
+      if (!dateVal) return false;
+      var d = new Date(dateVal);
+      if (isNaN(d.getTime())) return false;
+      var now = new Date();
+      var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      if (state.dateFilter === "yesterday") {
+        var yest = new Date(today); yest.setDate(yest.getDate() - 1);
+        if (d < yest || d >= today) return false;
+      } else if (state.dateFilter === "week") {
+        var weekStart = new Date(today); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        if (d < weekStart) return false;
+      } else if (state.dateFilter === "month") {
+        var monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        if (d < monthStart) return false;
+      } else if (state.dateFilter === "custom") {
+        if (state.dateFrom) { var from = new Date(state.dateFrom); if (d < from) return false; }
+        if (state.dateTo) { var to = new Date(state.dateTo); to.setDate(to.getDate() + 1); if (d >= to) return false; }
+      }
+    }
     if (state.cityFilter !== "All" && p.city !== state.cityFilter) return false;
     // Status: array filter
     if (state.statusFilter.length > 0 && state.statusFilter.indexOf(getStatus(p)) === -1) return false;
@@ -193,3 +216,4 @@ function getCounts() {
   DATA.forEach(p => { const s = getStatus(p); c[s] = (c[s]||0) + 1; });
   return c;
 }
+

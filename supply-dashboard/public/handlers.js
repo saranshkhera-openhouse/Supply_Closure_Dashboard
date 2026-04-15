@@ -32,10 +32,27 @@ function clearAllFilters() {
   state.statusFilter = [];
   state.pocFilter = [];
   state.sourceFilter = "All";
+  state.dateFilter = "all";
+  state.dateFrom = "";
+  state.dateTo = "";
   state.sortCol = null;
   state.sortDir = "asc";
   state.page = 1;
   state.msOpen = null;
+  render();
+}
+
+function setDateFilter(mode) {
+  state.dateFilter = mode;
+  if (mode !== 'custom') { state.dateFrom = ""; state.dateTo = ""; }
+  state.page = 1;
+  render();
+}
+
+function setCustomDate(which, val) {
+  if (which === 'from') state.dateFrom = val;
+  else state.dateTo = val;
+  state.page = 1;
   render();
 }
 

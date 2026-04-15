@@ -42,6 +42,9 @@ let state = {
   statusFilter: [],
   pocFilter: [],
   sourceFilter: "All",
+  dateFilter: "all", // all | yesterday | week | month | custom
+  dateFrom: "",
+  dateTo: "",
   expandedId: null,
   modalImg: null,
   page: 1,

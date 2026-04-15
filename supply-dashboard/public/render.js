@@ -24,16 +24,15 @@ function _render() {
   // Header
   h += '<div class="header">';
   h += '<div style="display:flex;align-items:center;gap:10px"><img src="/logo.png" class="logo" alt="OH"><div><div style="font-size:16px;font-weight:700">Supply Closure Tracker</div><div style="font-size:11px;color:#6b7280">All Cities &middot; '+DATA.length+' Properties</div></div></div>';
-  h += '<div style="display:flex;align-items:center;gap:12px">';
   h += '<div class="tabs">';
   tabStatuses.forEach(s => {
     h += '<span class="tab'+(state.statusFilter.indexOf(s)>=0?' active':'')+'" onclick="toggleTab(\''+s+'\')">'+s+' <span style="font-weight:700;margin-left:2px">'+(counts[s]||0)+'</span></span>';
   });
   h += '</div>';
-  // User bar
+  // User bar — rightmost
   if (currentUser) {
     const pendingCount = adminRequests.filter(r => r.status === 'pending').length;
-    h += '<div class="user-bar">';
+    h += '<div class="user-bar" style="margin-left:auto">';
     h += '<span class="email">'+esc(currentUser.name || currentUser.email)+'</span>';
     if (currentUser.role === 'admin') {
       h += '<button class="admin-btn" onclick="openAdmin()">Manage Users';
@@ -43,7 +42,22 @@ function _render() {
     h += '<button onclick="logout()">Logout</button>';
     h += '</div>';
   }
-  h += '</div></div>';
+  h += '</div>';
+
+  // Date filter bar
+  h += '<div class="filters" style="gap:6px;padding:6px 20px;border-bottom:1px solid #f3f4f6">';
+  h += '<span style="font-size:10px;color:#9ca3af;font-weight:600">DATE:</span>';
+  var dBtns = [{k:"all",l:"All"},{k:"yesterday",l:"Yesterday"},{k:"week",l:"This Week"},{k:"month",l:"This Month"},{k:"custom",l:"Custom"}];
+  dBtns.forEach(function(b){
+    var active = state.dateFilter === b.k;
+    h += '<button onclick="setDateFilter(\''+b.k+'\')" style="padding:2px 8px;font-size:10px;border-radius:4px;cursor:pointer;border:1px solid '+(active?'#111827':'#e5e7eb')+';background:'+(active?'#111827':'#fff')+';color:'+(active?'#fff':'#6b7280')+';font-weight:'+(active?'600':'400')+';transition:all 0.15s">'+b.l+'</button>';
+  });
+  if (state.dateFilter === 'custom') {
+    h += '<input type="date" value="'+esc(state.dateFrom)+'" onchange="setCustomDate(\'from\',this.value)" style="padding:2px 6px;font-size:10px;border:1px solid #e5e7eb;border-radius:4px;color:#374151">';
+    h += '<span style="font-size:10px;color:#9ca3af">to</span>';
+    h += '<input type="date" value="'+esc(state.dateTo)+'" onchange="setCustomDate(\'to\',this.value)" style="padding:2px 6px;font-size:10px;border:1px solid #e5e7eb;border-radius:4px;color:#374151">';
+  }
+  h += '</div>';
 
   // Filters
   h += '<div class="filters">';
@@ -90,7 +104,7 @@ function _render() {
   }
   h += '</div>';
   h += '<select onchange="updateFilter(\'sourceFilter\',this.value)"><option value="All">All Sources</option><option value="CP"'+(state.sourceFilter==="CP"?' selected':'')+'>CP</option><option value="Direct"'+(state.sourceFilter==="Direct"?' selected':'')+'>Direct</option></select>';
-  var hasFilters = state.search || state.cityFilter !== "All" || state.statusFilter.length > 0 || state.pocFilter.length > 0 || state.sourceFilter !== "All" || state.sortCol;
+  var hasFilters = state.search || state.cityFilter !== "All" || state.statusFilter.length > 0 || state.pocFilter.length > 0 || state.sourceFilter !== "All" || state.sortCol || state.dateFilter !== "all";
   if (hasFilters) {
     h += '<button onclick="clearAllFilters()" style="padding:3px 8px;border-radius:5px;font-size:10px;cursor:pointer;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;transition:all 0.15s;font-weight:500">&times; Clear</button>';
   }
