@@ -261,8 +261,8 @@ function _render() {
         if (p.guaranteedSalePrice) h += '<span>GSP: <b>\u20B9'+esc(p.guaranteedSalePrice)+'L</b></span>';
         if (p.initialPeriod) h += '<span>Contract: <b>'+esc(p.initialPeriod)+'d</b></span>';
         if (p.gracePeriod) h += '<span>Grace: <b>'+esc(p.gracePeriod)+'d</b></span>';
-        if (p.videoLink) h += '<a href="'+esc(p.videoLink)+'" target="_blank" style="color:#2563eb;text-decoration:none">\u25B6 Video/Photos</a>';
       }
+      if (p.videoLink) h += '<a href="'+esc(p.videoLink)+'" target="_blank" style="color:#2563eb;text-decoration:none">\u25B6 Video/Photos</a>';
       h += '</div>';
 
       // POC edit (admin only)
@@ -284,7 +284,7 @@ function _render() {
         h += '<div style="font-size:11px;color:#6b7280;margin-bottom:12px">Docs: '+p.documentsAvailable.map(function(d){return esc(d)}).join(' \u00B7 ')+'</div>';
       }
 
-      if (!isDemand && p.balconyDetails && p.balconyDetails.length > 0) {
+      if (p.balconyDetails && p.balconyDetails.length > 0) {
         h += '<div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">Balcony Views & Compass</div>';
         h += '<div class="img-strip">';
         if (p.exitCompassImage) {
