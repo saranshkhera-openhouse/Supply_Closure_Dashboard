@@ -76,6 +76,9 @@ function _render() {
   h += ' &#9662;</div>';
   if (state.msOpen === 'status') {
     h += '<div class="ms-drop" onclick="event.stopPropagation()">';
+    var noStageOn = state.statusFilter.indexOf("_nostage_") >= 0;
+    h += '<div class="ms-item" onclick="toggleMsItem(\'statusFilter\',\'_nostage_\')">';
+    h += '<div class="ms-check'+(noStageOn?' on':'')+'">'+(noStageOn?'&#10003;':'')+'</div>(No Stage / Other)</div>';
     ALL_STATUSES.forEach(function(s) {
       var on = state.statusFilter.indexOf(s) >= 0;
       h += '<div class="ms-item" onclick="toggleMsItem(\'statusFilter\',\''+esc(s)+'\')">';
@@ -254,13 +257,15 @@ function _render() {
       if (p.furnishing) h += '<span>Furnishing: <b>'+esc(p.furnishing)+'</b></span>';
       if (p.registryStatus) h += '<span>Registry: <b>'+esc(p.registryStatus)+'</b></span>';
       if (p.occupancyStatus) h += '<span>Occupancy: <b>'+esc(p.occupancyStatus)+'</b></span>';
-      if (p.guaranteedSalePrice) h += '<span>GSP: <b>\u20B9'+esc(p.guaranteedSalePrice)+'L</b></span>';
-      if (p.initialPeriod) h += '<span>Contract: <b>'+esc(p.initialPeriod)+'d</b></span>';
-      if (p.gracePeriod) h += '<span>Grace: <b>'+esc(p.gracePeriod)+'d</b></span>';
-      if (p.videoLink) h += '<a href="'+esc(p.videoLink)+'" target="_blank" style="color:#2563eb;text-decoration:none">\u25B6 Video/Photos</a>';
+      if (!isDemand) {
+        if (p.guaranteedSalePrice) h += '<span>GSP: <b>\u20B9'+esc(p.guaranteedSalePrice)+'L</b></span>';
+        if (p.initialPeriod) h += '<span>Contract: <b>'+esc(p.initialPeriod)+'d</b></span>';
+        if (p.gracePeriod) h += '<span>Grace: <b>'+esc(p.gracePeriod)+'d</b></span>';
+        if (p.videoLink) h += '<a href="'+esc(p.videoLink)+'" target="_blank" style="color:#2563eb;text-decoration:none">\u25B6 Video/Photos</a>';
+      }
       h += '</div>';
 
-      // POC edit (admin only, not legacy)
+      // POC edit (admin only)
       if (currentUser && currentUser.role === 'admin') {
         var pocFromData = DATA.map(function(d){return d.assignedBy}).filter(Boolean);
         var pocFromTeam = adminTeam.map(function(t){return t.display_name}).filter(Boolean);
@@ -275,11 +280,11 @@ function _render() {
         h += '</div>';
       }
 
-      if (p.documentsAvailable && p.documentsAvailable.length > 0) {
+      if (!isDemand && p.documentsAvailable && p.documentsAvailable.length > 0) {
         h += '<div style="font-size:11px;color:#6b7280;margin-bottom:12px">Docs: '+p.documentsAvailable.map(function(d){return esc(d)}).join(' \u00B7 ')+'</div>';
       }
 
-      if (p.balconyDetails && p.balconyDetails.length > 0) {
+      if (!isDemand && p.balconyDetails && p.balconyDetails.length > 0) {
         h += '<div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">Balcony Views & Compass</div>';
         h += '<div class="img-strip">';
         if (p.exitCompassImage) {
@@ -293,7 +298,7 @@ function _render() {
           h += '</div><div style="font-size:10px;color:#6b7280;margin-top:3px">'+esc(b.attached_to||"")+' \u00B7 '+esc(b.facing||"")+' \u00B7 '+esc(b.view||"")+'</div></div>';
         });
         h += '</div>';
-      } else {
+      } else if (!isDemand) {
         h += '<div style="font-size:11px;color:#9ca3af;font-style:italic">Visit not completed \u2014 no images available</div>';
       }
 
