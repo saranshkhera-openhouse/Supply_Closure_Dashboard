@@ -147,6 +147,30 @@ function changeBrokerage(uid, value) {
   debouncedSave(uid, "supply_dash_brokerage", value);
 }
 
+// Followup Date uses 8s debounce so mis-clicks within 8s only save the final value
+function changeFollowupDate(uid, value) {
+  const prop = DATA.find(p => p.uid === uid);
+  if (!prop) return;
+
+  // Optimistic UI: tentatively show the new date as latest
+  if (!Array.isArray(prop.followupDates)) prop.followupDates = [];
+  const now = Date.now();
+  const newEntry = { date: value, set_by: (currentUser && currentUser.email) || "", set_at: new Date().toISOString(), pending: true };
+  if (prop.followupDates.length > 0 && prop.followupDates[prop.followupDates.length - 1].pending) {
+    // Replace existing pending entry
+    prop.followupDates[prop.followupDates.length - 1] = newEntry;
+  } else {
+    prop.followupDates.push(newEntry);
+  }
+
+  const key = uid + "_followup_date";
+  saveStatus[key] = "saving";
+  renderSaveDot(key);
+
+  clearTimeout(saveTimers[key]);
+  saveTimers[key] = setTimeout(() => saveField(uid, "followup_date", value), 8000);
+}
+
 async function changePoc(uid, value) {
   if (!value) return;
   const prop = DATA.find(p => p.uid === uid);

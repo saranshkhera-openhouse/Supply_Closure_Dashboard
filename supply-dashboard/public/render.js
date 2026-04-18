@@ -131,9 +131,9 @@ function _render() {
   // Table
   h += '<div id="tableWrap" style="flex:1;overflow:auto"><table><thead><tr>';
   var isDemand = currentUser && currentUser.role === 'demand';
-  var DEMAND_HIDE = ["Ask (in Lakhs)","Name","Phone","Offer Price","Brokerage","Internal Remarks","Closure Team Comments","Rahool Comments","Prashant Comments"];
+  var DEMAND_HIDE = ["Ask (in Lakhs)","Name","Phone","Followup Date","Offer Price","Brokerage","Internal Remarks","Closure Team Comments","Rahool Comments","Prashant Comments"];
   var COLS = [
-    {hdr:"Date Added",key:"scheduleSubmittedAt"},{hdr:"Society",key:"society"},{hdr:"City",key:"city"},{hdr:"Location",key:"locality"},{hdr:"Tower",key:"towerNo"},{hdr:"Unit No.",key:"unitNo"},{hdr:"Config",key:"configuration"},{hdr:"Ask (in Lakhs)",key:"demandPrice"},{hdr:"Area (in Sqft)",key:"areaSqft"},{hdr:"Floor",key:"floor"},{hdr:"Source",key:"source"},{hdr:"Name",key:"ownerName"},{hdr:"Phone",key:"contactNo"},{hdr:"Status",key:null},{hdr:"Exit Facing",key:"exitFacing"},{hdr:"Balcony View",key:null},{hdr:"POC",key:"assignedBy"},{hdr:"Offer Price",key:null},{hdr:"Brokerage",key:"supplyDashBrokerage"},{hdr:"Key Handover",key:"keysHandoverDate"},{hdr:"Internal Remarks",key:null},{hdr:"Closure Team Comments",key:null},{hdr:"Rahool Comments",key:null},{hdr:"Prashant Comments",key:null},{hdr:"Demand Team Comments",key:null}
+    {hdr:"Date Added",key:"scheduleSubmittedAt"},{hdr:"Society",key:"society"},{hdr:"City",key:"city"},{hdr:"Location",key:"locality"},{hdr:"Tower",key:"towerNo"},{hdr:"Unit No.",key:"unitNo"},{hdr:"Config",key:"configuration"},{hdr:"Ask (in Lakhs)",key:"demandPrice"},{hdr:"Area (in Sqft)",key:"areaSqft"},{hdr:"Floor",key:"floor"},{hdr:"Source",key:"source"},{hdr:"Name",key:"ownerName"},{hdr:"Phone",key:"contactNo"},{hdr:"Status",key:null},{hdr:"Exit Facing",key:"exitFacing"},{hdr:"Balcony View",key:null},{hdr:"POC",key:"assignedBy"},{hdr:"Followup Date",key:null},{hdr:"Offer Price",key:null},{hdr:"Brokerage",key:"supplyDashBrokerage"},{hdr:"Key Handover",key:"keysHandoverDate"},{hdr:"Internal Remarks",key:null},{hdr:"Closure Team Comments",key:null},{hdr:"Rahool Comments",key:null},{hdr:"Prashant Comments",key:null},{hdr:"Demand Team Comments",key:null}
   ];
   if (isDemand) COLS = COLS.filter(function(c){ return DEMAND_HIDE.indexOf(c.hdr) === -1; });
   var colCount = COLS.length;
@@ -189,6 +189,30 @@ function _render() {
     h += '<td>'+(p.exitFacing||"\u2014")+'</td>';
     h += '<td class="balcony-cell">'+(getBalconyView(p)||p.balconyView||"\u2014")+'</td>';
     h += '<td class="small-cell">'+esc(p.assignedBy||"\u2014")+'</td>';
+
+    // Followup Date
+    if (isDemand) {
+      // hidden for demand
+    } else {
+      var fDates = Array.isArray(p.followupDates) ? p.followupDates : [];
+      var latestDate = fDates.length > 0 ? (fDates[fDates.length - 1].date || "") : "";
+      var historyTitle = "";
+      if (fDates.length > 1) {
+        historyTitle = "History:\n" + fDates.map(function(e, i){
+          var when = e.set_at ? new Date(e.set_at).toLocaleDateString("en-IN") : "";
+          return (i+1) + ". " + (e.date || "—") + (when ? " (set " + when + ")" : "");
+        }).join("\n");
+      }
+      if (canEdit()) {
+        h += '<td onclick="event.stopPropagation()" title="'+esc(historyTitle)+'">';
+        h += '<input type="date" value="'+esc(latestDate)+'" onchange="changeFollowupDate(\''+p.uid+'\',this.value)" style="padding:3px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:11px;color:#374151;outline:none;font-family:inherit">';
+        h += '<span id="dot_'+p.uid+'_followup_date" class="save-dot '+(saveStatus[p.uid+'_followup_date']||'')+'"></span>';
+        if (fDates.length > 1) h += '<div style="font-size:9px;color:#9ca3af;margin-top:1px">'+fDates.length+' changes</div>';
+        h += '</td>';
+      } else {
+        h += '<td style="font-size:11px" title="'+esc(historyTitle)+'">'+(latestDate ? formatDateOnly(latestDate) : "\u2014")+'</td>';
+      }
+    }
 
     // Offer
     if (isDemand) {

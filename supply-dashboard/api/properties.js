@@ -75,7 +75,7 @@ module.exports = async function handler(req, res) {
         prashant_comments, demand_team_comments,
         closure_team_comments_at, rahool_comments_at,
         prashant_comments_at, demand_team_comments_at,
-        key_handover_date, token_remarks, is_token_refunded
+        key_handover_date, token_remarks, is_token_refunded, followup_dates
       FROM properties
       WHERE (is_dead IS NULL OR is_dead = false)
       ORDER BY created_at DESC
@@ -131,6 +131,7 @@ module.exports = async function handler(req, res) {
         "bank_name_loan": "bankNameLoan",
         "exit_compass_image": "exitCompassImage",
         "balcony_details": "balconyDetails",
+        "followup_dates": "followupDates",
       };
       const COMMENT_TS_MAP = {
         "closure_team_comments": "closureTeamCommentsAt",
@@ -145,7 +146,7 @@ module.exports = async function handler(req, res) {
           const jsKey = FIELD_TO_KEY[dbField];
           if (jsKey) {
             // Try parsing JSON for array fields
-            if (jsKey === "balconyDetails") {
+            if (jsKey === "balconyDetails" || jsKey === "followupDates") {
               try { p[jsKey] = JSON.parse(obj.value); } catch { p[jsKey] = []; }
             } else {
               p[jsKey] = obj.value;
@@ -380,5 +381,6 @@ function transformRow(r) {
     keysHandoverDate: r.key_handover_date || "",
     tokenRemarks: r.token_remarks || "",
     isTokenRefunded: r.is_token_refunded || false,
+    followupDates: parseJson(r.followup_dates),
   };
 }

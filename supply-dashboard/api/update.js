@@ -5,6 +5,7 @@ const COMMENT_FIELDS = [
   "status_override",
   "offer_price",
   "supply_dash_brokerage",
+  "followup_date",
   "closure_team_comments",
   "rahool_comments",
   "prashant_comments",
@@ -74,10 +75,41 @@ module.exports = async function handler(req, res) {
         } catch {}
       }
 
+      let valueToStore = value || "";
+      if (field === "followup_date") {
+        // Read existing array, append or replace within 8s window
+        let dates = [];
+        try {
+          const existing = await sql`SELECT value FROM legacy_edits WHERE uid = ${uid} AND field = 'followup_dates'`;
+          if (existing.length > 0) {
+            try { dates = JSON.parse(existing[0].value); if (!Array.isArray(dates)) dates = []; } catch { dates = []; }
+          }
+        } catch {}
+        const now = Date.now();
+        const newEntry = { date: value || "", set_by: user.email, set_at: new Date().toISOString() };
+        if (dates.length > 0) {
+          const lastAt = new Date(dates[dates.length - 1].set_at).getTime();
+          if (!isNaN(lastAt) && (now - lastAt) < 8000) {
+            dates[dates.length - 1] = newEntry;
+          } else {
+            dates.push(newEntry);
+          }
+        } else {
+          dates.push(newEntry);
+        }
+        // Store the array as JSON under 'followup_dates' key (not the raw date)
+        await sql`
+          INSERT INTO legacy_edits (uid, field, value, updated_at)
+          VALUES (${uid}, ${'followup_dates'}, ${JSON.stringify(dates)}, NOW())
+          ON CONFLICT (uid, field) DO UPDATE SET value = ${JSON.stringify(dates)}, updated_at = NOW()
+        `;
+        return res.status(200).json({ success: true, uid, field, value });
+      }
+
       await sql`
         INSERT INTO legacy_edits (uid, field, value, updated_at)
-        VALUES (${uid}, ${field}, ${value || ""}, NOW())
-        ON CONFLICT (uid, field) DO UPDATE SET value = ${value || ""}, updated_at = NOW()
+        VALUES (${uid}, ${field}, ${valueToStore}, NOW())
+        ON CONFLICT (uid, field) DO UPDATE SET value = ${valueToStore}, updated_at = NOW()
       `;
 
       if (LOGGED_FIELDS[field] && oldValue !== (value || "")) {
@@ -110,7 +142,31 @@ module.exports = async function handler(req, res) {
 
     const tsCol = COMMENT_TS[field];
     let query, params;
-    if (tsCol) {
+    if (field === "followup_date") {
+      // Fetch existing followup_dates array
+      const existing = await sql`SELECT followup_dates FROM properties WHERE uid = ${uid}`;
+      let dates = [];
+      if (existing.length > 0 && existing[0].followup_dates) {
+        dates = typeof existing[0].followup_dates === "string" ? JSON.parse(existing[0].followup_dates) : existing[0].followup_dates;
+        if (!Array.isArray(dates)) dates = [];
+      }
+      const now = Date.now();
+      const newEntry = { date: value || "", set_by: user.email, set_at: new Date().toISOString() };
+
+      // Mis-click protection: if last entry was < 8s ago, REPLACE instead of append
+      if (dates.length > 0) {
+        const lastAt = new Date(dates[dates.length - 1].set_at).getTime();
+        if (!isNaN(lastAt) && (now - lastAt) < 8000) {
+          dates[dates.length - 1] = newEntry;
+        } else {
+          dates.push(newEntry);
+        }
+      } else {
+        dates.push(newEntry);
+      }
+      query = `UPDATE properties SET followup_dates = $1::jsonb WHERE uid = $2 RETURNING uid`;
+      params = [JSON.stringify(dates), uid];
+    } else if (tsCol) {
       query = `UPDATE properties SET ${field} = $1, ${tsCol} = NOW() WHERE uid = $2 RETURNING uid`;
       params = [value || "", uid];
     } else if (field === "status_override") {
