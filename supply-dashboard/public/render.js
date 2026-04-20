@@ -133,7 +133,7 @@ function _render() {
   var isDemand = currentUser && currentUser.role === 'demand';
   var DEMAND_HIDE = ["Ask (in Lakhs)","Name","Phone","Followup Date","Offer Price","Brokerage","Internal Remarks","Closure Team Comments","Rahool Comments","Prashant Comments"];
   var COLS = [
-    {hdr:"Date Added",key:"scheduleSubmittedAt"},{hdr:"Society",key:"society"},{hdr:"City",key:"city"},{hdr:"Location",key:"locality"},{hdr:"Tower",key:"towerNo"},{hdr:"Unit No.",key:"unitNo"},{hdr:"Config",key:"configuration"},{hdr:"Ask (in Lakhs)",key:"demandPrice"},{hdr:"Area (in Sqft)",key:"areaSqft"},{hdr:"Floor",key:"floor"},{hdr:"Source",key:"source"},{hdr:"Name",key:"ownerName"},{hdr:"Phone",key:"contactNo"},{hdr:"Status",key:null},{hdr:"Exit Facing",key:"exitFacing"},{hdr:"Balcony View",key:null},{hdr:"POC",key:"assignedBy"},{hdr:"Followup Date",key:null},{hdr:"Offer Price",key:null},{hdr:"Brokerage",key:"supplyDashBrokerage"},{hdr:"Key Handover",key:"keysHandoverDate"},{hdr:"Internal Remarks",key:null},{hdr:"Closure Team Comments",key:null},{hdr:"Rahool Comments",key:null},{hdr:"Prashant Comments",key:null},{hdr:"Demand Team Comments",key:null}
+    {hdr:"Date Added",key:"scheduleSubmittedAt"},{hdr:"ID / Lead ID",key:"uid"},{hdr:"Society",key:"society"},{hdr:"City",key:"city"},{hdr:"Location",key:"locality"},{hdr:"Tower",key:"towerNo"},{hdr:"Unit No.",key:"unitNo"},{hdr:"Config",key:"configuration"},{hdr:"Ask (in Lakhs)",key:"demandPrice"},{hdr:"Area (in Sqft)",key:"areaSqft"},{hdr:"Floor",key:"floor"},{hdr:"Source",key:"source"},{hdr:"Name",key:"ownerName"},{hdr:"Phone",key:"contactNo"},{hdr:"Status",key:null},{hdr:"Exit Facing",key:"exitFacing"},{hdr:"Balcony View",key:null},{hdr:"POC",key:"assignedBy"},{hdr:"Followup Date",key:null},{hdr:"Offer Price",key:null},{hdr:"Brokerage",key:"supplyDashBrokerage"},{hdr:"Key Handover",key:"keysHandoverDate"},{hdr:"Internal Remarks",key:null},{hdr:"Closure Team Comments",key:null},{hdr:"Rahool Comments",key:null},{hdr:"Prashant Comments",key:null},{hdr:"Demand Team Comments",key:null}
   ];
   if (isDemand) COLS = COLS.filter(function(c){ return DEMAND_HIDE.indexOf(c.hdr) === -1; });
   var colCount = COLS.length;
@@ -161,6 +161,7 @@ function _render() {
 
     h += '<tr class="datarow'+(isExp?' expanded':'')+'" onclick="toggleExpand(\''+p.uid+'\')">';
     h += '<td style="font-size:11px;white-space:nowrap;color:#6b7280">'+formatDateOnly(p.scheduleSubmittedAt)+'</td>';
+    h += '<td style="font-size:11px;white-space:nowrap;font-family:monospace">'+esc(p.uid||"")+(p.leadId?' <span style="color:#9ca3af">('+esc(p.leadId)+')</span>':'')+'</td>';
     h += '<td class="society-cell">'+esc(p.society)+'</td>';
     h += '<td>'+esc(p.city||"\u2014")+'</td>';
     h += '<td>'+esc(p.locality)+'</td>';
